@@ -2,9 +2,9 @@
 set -e
 
 # Check if we are in the correct directory before running commands.
-if [[ ! $(pwd) == '/home/meetingserver/app-meeting-server' ]]; then
+if [[ ! $(pwd) == '/home/meetingplatform/meeting-platform' ]]; then
 	echo "Running in the wrong directory...switching to..."
-	cd /home/meetingserver/app-meeting-server
+	cd /home/meetingplatform/meeting-platform
 fi
 
 python3 manage.py migrate
