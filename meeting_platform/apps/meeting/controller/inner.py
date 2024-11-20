@@ -102,3 +102,15 @@ class MeetingParticipantsView(RetrieveAPIView, GenericAPIView):
     def retrieve(self, *args, **kwargs):
         data = self.app_class.get_participants(kwargs.get('id'))
         return ret_json(data=data)
+
+
+class MeetingPlatformView(MyListModelMixin, GenericAPIView):
+    serializer_class = EmptySerializers
+    queryset = None
+    authentication_classes = (BasicAuthentication,)
+    app_class = MeetingApp()
+
+    def get(self, request, *args, **kwargs):
+        community = request.query_params.get("community")
+        data = self.app_class.get_meeting_platform(community)
+        return ret_json(data=data)

@@ -145,3 +145,12 @@ class MeetingApp:
             logger.error('[MeetingApp/get_participants]Invalid meeting id:{}'.format(meeting_id))
             raise MyValidationError(RetCode.INFORMATION_CHANGE_ERROR)
         return self.meeting_adapter_impl.get_participants(model_to_dict(meeting))
+
+    def get_meeting_platform(self, community):
+        """get platform"""
+        if community not in settings.COMMUNITY_HOST.keys():
+            raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
+        host_info = settings.COMMUNITY_HOST.get(community)
+        if host_info is not None:
+            return list(host_info.keys())
+        return list()

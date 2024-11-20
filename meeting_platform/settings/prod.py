@@ -19,7 +19,10 @@ VAULT_PATH = os.getenv('VAULT_PATH')
 # Read Content from path
 CONF = yaml.safe_load(open(CONFIG_PATH, 'r'))
 VAULT_CONF = yaml.safe_load(open(VAULT_PATH, 'r'))
-MYSQL_TLS_PEM_CONTENT = open(CONF["MYSQL_TLS_PEM_PATH"], 'r')
+if not CONF["DEBUG"]:
+    MYSQL_TLS_PEM_CONTENT = open(CONF["MYSQL_TLS_PEM_PATH"], 'r')
+else:
+    MYSQL_TLS_PEM_CONTENT = None
 
 # Delete the file after reading the configuration
 if CONF["IS_DELETE_CONFIG"]:
