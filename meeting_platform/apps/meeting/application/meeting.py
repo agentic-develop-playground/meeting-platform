@@ -166,4 +166,5 @@ class MeetingApp:
         start_date = (date - datetime.timedelta(days=31)).strftime('%Y-%m-%d')
         end_date = (date + datetime.timedelta(days=31)).strftime('%Y-%m-%d')
         queryset = queryset.filter(date__gte=start_date, date__lte=end_date)
-        return queryset.distinct().order_by('-date', 'id').values_list("date", flat=True)
+        queryset_data = queryset.distinct().order_by('-date', 'id').values_list("date", flat=True)
+        return [date for date in queryset_data]
