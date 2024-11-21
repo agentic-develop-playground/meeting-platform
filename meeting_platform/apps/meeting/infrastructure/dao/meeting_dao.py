@@ -20,7 +20,7 @@ class MeetingDao:
 
     @classmethod
     def get_queryset(cls):
-        return cls.dao.objects.filter(is_delete=0)
+        return cls.dao.objects.all()
 
     @classmethod
     def create(cls, **kwargs):

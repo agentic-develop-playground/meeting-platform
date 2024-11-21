@@ -29,7 +29,7 @@ class MeetingView(MySerializerParse, MyListModelMixin, ListAPIView, CreateAPIVie
     permission_classes = (IsAuthenticated,)
     queryset = MeetingApp.meeting_dao.get_queryset()
     filter_backends = [SearchFilter]
-    search_fields = ['community', "mid", "id"]
+    search_fields = ['community', "mid", "id", "sponsor"]
     pagination_class = MyPagination
     app_class = MeetingApp()
     order_by = ["date", "create_time", "update_time"]
@@ -47,6 +47,19 @@ class MeetingView(MySerializerParse, MyListModelMixin, ListAPIView, CreateAPIVie
 
     def get_queryset(self):
         """get the queryset"""
+        date = self.request.query_params.get("date")
+        if date is not None:
+            date = self.serializer_class.check_date(date)
+            self.queryset = self.queryset.filter(date=date)
+        is_delete = self.request.query_params.get("is_delete")
+        if is_delete is not None:
+            self.queryset = self.queryset.filter(is_delete=is_delete)
+        sponsor = self.request.query_params.get("sponsor")
+        if sponsor is not None:
+            self.queryset = self.queryset.filter(sponsor=sponsor)
+        community = self.request.query_params.get("community")
+        if community is not None:
+            self.queryset = self.queryset.filter(community=community)
         order_by = self.request.query_params.get("order_by")
         if order_by and order_by not in self.order_by:
             raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
@@ -66,7 +79,7 @@ class SingleMeetingView(MySerializerParse, MyRetrieveModelMixin, MyUpdateAPIView
     """get or update or delete meeting"""
     lookup_field = "id"
     serializer_class = SingleMeetingSerializer
-    queryset = MeetingApp.meeting_dao.get_queryset()
+    queryset = MeetingApp.meeting_dao.get_queryset().filter(is_delete=0)
     authentication_classes = (BasicAuthentication,)
     permission_classes = (IsAuthenticated,)
     app_class = MeetingApp()
@@ -95,7 +108,7 @@ class SingleMeetingView(MySerializerParse, MyRetrieveModelMixin, MyUpdateAPIView
 class MeetingParticipantsView(RetrieveAPIView, GenericAPIView):
     lookup_field = "id"
     serializer_class = EmptySerializers
-    queryset = MeetingApp.meeting_dao.get_queryset()
+    queryset = MeetingApp.meeting_dao.get_queryset().filter(is_delete=0)
     authentication_classes = (BasicAuthentication,)
     app_class = MeetingApp()
 
@@ -110,7 +123,22 @@ class MeetingPlatformView(MyListModelMixin, GenericAPIView):
     authentication_classes = (BasicAuthentication,)
     app_class = MeetingApp()
 
-    def get(self, request, *args, **kwargs):
+    def get(self, request):
         community = request.query_params.get("community")
         data = self.app_class.get_meeting_platform(community)
         return ret_json(data=data)
+
+
+class MeetingDateView(MyListModelMixin, GenericAPIView):
+    serializer_class = MeetingSerializer
+    queryset = None
+    authentication_classes = (BasicAuthentication,)
+    app_class = MeetingApp()
+
+    def get(self, request):
+        community = request.query_params.get("community")
+        date = request.query_params.get("date")
+        if date is not None:
+            date = self.serializer_class.check_date(date)
+        data = self.app_class.get_meeting_date(community, date)
+        return ret_json(data)

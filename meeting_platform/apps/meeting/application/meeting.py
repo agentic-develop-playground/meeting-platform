@@ -154,3 +154,16 @@ class MeetingApp:
         if host_info is not None:
             return list(host_info.keys())
         return list()
+
+    def get_meeting_date(self, community, date):
+        queryset = self.meeting_dao.get_queryset().filter(is_delete=0)
+        if community is not None:
+            queryset = queryset.filter(community=community)
+        if date is None:
+            date = datetime.datetime.now()
+        else:
+            date = datetime.datetime.strptime(date, "%Y-%m-%d")
+        start_date = (date - datetime.timedelta(days=31)).strftime('%Y-%m-%d')
+        end_date = (date + datetime.timedelta(days=31)).strftime('%Y-%m-%d')
+        queryset = queryset.filter(date__gte=start_date, date__lte=end_date)
+        return queryset.distinct().order_by('-date', 'id').values_list("date", flat=True)
