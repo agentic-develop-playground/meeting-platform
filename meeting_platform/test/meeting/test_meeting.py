@@ -718,3 +718,37 @@ class GetMeetingParticipantsViewTest(TestCommonMeeting):
         ret = self.client.get(self.url.format(meeting.id))
         self.assertEqual(ret.status_code, status.HTTP_200_OK)
         self._teardown()
+
+
+class GetMeetingDateViewTest(TestCommonMeeting):
+    url = "/inner/v1/meeting/meeting/date/"
+
+    def _setup(self):
+        user = self.create_user()
+        self.enable_client_auth(user.username)
+        return user
+
+    def test_get_meeting_date(self):
+        ret = self.client.get(self.url)
+        self.assertEqual(ret.status_code, status.HTTP_200_OK)
+
+    def _teardown(self):
+        meeting = self.get_meetings()
+        logger.info("find meeting:{}".format(len(meeting)))
+        for meeting in meeting:
+            uri = DeleteMeetingViewTest.url.format(meeting.id)
+            self.client.delete(uri)
+        self.clear_user()
+
+
+class GetMeetingPlatformViewTest(TestCommonMeeting):
+    url = "/inner/v1/meeting/meeting/platform/?community={}"
+
+    def _setup(self):
+        user = self.create_user()
+        self.enable_client_auth(user.username)
+        return user
+
+    def test_get_meeting_date(self):
+        ret = self.client.get(self.url.format("openEuler"))
+        self.assertEqual(ret.status_code, status.HTTP_200_OK)
