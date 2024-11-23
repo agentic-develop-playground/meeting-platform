@@ -463,13 +463,23 @@ class UpdateMeetingViewTest(TestCommonMeeting):
         self._teardown()
 
     def test_conflict_meeting_failed(self):
+        username = "anonymous"
         self._setup()
+        # ready the one meeting
         platform = settings.COMMUNITY_HOST[CreateMeetingViewTest.data["community"]][
             CreateMeetingViewTest.data["platform"]]
-        meeting = None
         for i in range(len(platform)):
-            meeting = self._create_meeting("anonymous")
+            self._create_meeting(username)
+        # ready the two meeting
+        data = copy.deepcopy(CreateMeetingViewTest.data)
+        data["date"] = str(datetime.datetime.now().date() + timedelta(days=2))
+        available_host_id = MeetingApp()._get_and_check_conflict_meetings_by_date(data)
+        data["host_id"] = secrets.choice(available_host_id)
+        data["sponsor"] = username
+        meeting = self.create_meeting(**data)
+        # put the two meeting
         update_data = copy.deepcopy(self.data)
+        update_data["date"] = CreateMeetingViewTest.data["date"]
         update_data["start"] = CreateMeetingViewTest.data["start"]
         update_data["end"] = CreateMeetingViewTest.data["end"]
         ret = self.client.put(self.url.format(meeting.id), update_data)
