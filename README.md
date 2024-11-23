@@ -1,9 +1,9 @@
 # meeting-platform
 ### 1.What's here?
 
-Provide a basic conference platform for various open source communities. Provides the following capabilities： 
+Provide a basic meeting platform for various open source communities. Provides the following capabilities： 
 
-+ Provide conference capabilities, including but not limited to creating, modifying, and deleting meeting.
++ Provide meeting capabilities, including but not limited to creating, modifying, and deleting meeting.
 + Provide the ability to notify meetings, including via mailing lists or message center.
 + Provide backup of recorded videos and upload to bilibili.
 
@@ -25,7 +25,7 @@ pip3 install -r requirements.txt
 
 #### 2.Config
 
-+ Get the config and vault-config from the [meeting-deploy](https://github.com/opensourceways/meeting-deploy/tree/main/meeting-platform)
++ Get the config and vault-config template from the [meeting-deploy](https://github.com/opensourceways/meeting-deploy/tree/main/meeting-platform)
 + Replace environment variables with the correct configuration.
 
 + Set the environment variables for config and vault-config.
@@ -35,7 +35,13 @@ pip3 install -r requirements.txt
   export VAULT_PATH=./vault-config
   ~~~
 
-#### 3.Test
+#### 3.Prepare
+
+~~~bash
+python3 manage.py migrate
+~~~
+
+#### 4.Test
 
 + Do test
 
@@ -54,7 +60,7 @@ pip3 install -r requirements.txt
 
   ![1732347612595](docs/assets/1732347612595.png)
 
-#### 4.Run
+#### 5.Run
 
 ~~~bash
 python3 manage.py runserver --noreload
