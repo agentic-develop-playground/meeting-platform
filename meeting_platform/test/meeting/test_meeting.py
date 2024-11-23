@@ -463,13 +463,23 @@ class UpdateMeetingViewTest(TestCommonMeeting):
         self._teardown()
 
     def test_conflict_meeting_failed(self):
+        username = "anonymous"
         self._setup()
+        # ready the one meeting
         platform = settings.COMMUNITY_HOST[CreateMeetingViewTest.data["community"]][
             CreateMeetingViewTest.data["platform"]]
-        meeting = None
         for i in range(len(platform)):
-            meeting = self._create_meeting("anonymous")
+            self._create_meeting(username)
+        # ready the two meeting
+        data = copy.deepcopy(CreateMeetingViewTest.data)
+        data["date"] = str(datetime.datetime.now().date() + timedelta(days=2))
+        available_host_id = MeetingApp()._get_and_check_conflict_meetings_by_date(data)
+        data["host_id"] = secrets.choice(available_host_id)
+        data["sponsor"] = username
+        meeting = self.create_meeting(**data)
+        # put the two meeting
         update_data = copy.deepcopy(self.data)
+        update_data["date"] = CreateMeetingViewTest.data["date"]
         update_data["start"] = CreateMeetingViewTest.data["start"]
         update_data["end"] = CreateMeetingViewTest.data["end"]
         ret = self.client.put(self.url.format(meeting.id), update_data)
@@ -708,3 +718,37 @@ class GetMeetingParticipantsViewTest(TestCommonMeeting):
         ret = self.client.get(self.url.format(meeting.id))
         self.assertEqual(ret.status_code, status.HTTP_200_OK)
         self._teardown()
+
+
+class GetMeetingDateViewTest(TestCommonMeeting):
+    url = "/inner/v1/meeting/meeting/date/"
+
+    def _setup(self):
+        user = self.create_user()
+        self.enable_client_auth(user.username)
+        return user
+
+    def test_get_meeting_date(self):
+        ret = self.client.get(self.url)
+        self.assertEqual(ret.status_code, status.HTTP_200_OK)
+
+    def _teardown(self):
+        meeting = self.get_meetings()
+        logger.info("find meeting:{}".format(len(meeting)))
+        for meeting in meeting:
+            uri = DeleteMeetingViewTest.url.format(meeting.id)
+            self.client.delete(uri)
+        self.clear_user()
+
+
+class GetMeetingPlatformViewTest(TestCommonMeeting):
+    url = "/inner/v1/meeting/meeting/platform/?community={}"
+
+    def _setup(self):
+        user = self.create_user()
+        self.enable_client_auth(user.username)
+        return user
+
+    def test_get_meeting_date(self):
+        ret = self.client.get(self.url.format("openEuler"))
+        self.assertEqual(ret.status_code, status.HTTP_200_OK)

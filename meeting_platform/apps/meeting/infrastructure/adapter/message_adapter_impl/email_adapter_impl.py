@@ -27,14 +27,19 @@ class EmailAdapter:
 
     def __init__(self, community):
         self.community = community
-        smtp_info = settings.COMMUNITY_SMTP[community]
-        self.smtp_message_from = smtp_info["SMTP_MESSAGE_FROM"]
-        self.email_adapter = EmailClient(smtp_info["SMTP_SERVER_HOST"], smtp_info["SMTP_SERVER_PORT"],
-                                         smtp_info["SMTP_SERVER_USER"], smtp_info["SMTP_SERVER_PASS"])
+        smtp_info = settings.COMMUNITY_SMTP.get(community)
+        if smtp_info is None:
+            logger.info("get empty smtp config from {}".format(smtp_info))
+            self.email_adapter = None
+        else:
+            self.smtp_message_from = smtp_info["SMTP_MESSAGE_FROM"]
+            self.email_adapter = EmailClient(smtp_info["SMTP_SERVER_HOST"], smtp_info["SMTP_SERVER_PORT"],
+                                             smtp_info["SMTP_SERVER_USER"], smtp_info["SMTP_SERVER_PASS"])
 
     def send_message(self, receive_str, msg):
-        msg['From'] = '{} conference <{}>'.format(self.community, self.smtp_message_from)
-        return self.email_adapter.send_message(self.smtp_message_from, receive_str, msg)
+        if self.email_adapter:
+            msg['From'] = '{} conference <{}>'.format(self.community, self.smtp_message_from)
+            return self.email_adapter.send_message(self.smtp_message_from, receive_str, msg)
 
 
 class EmailTemplate:
