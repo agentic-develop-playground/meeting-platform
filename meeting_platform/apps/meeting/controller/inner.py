@@ -141,4 +141,4 @@ class MeetingDateView(MyListModelMixin, GenericAPIView):
         if date is not None:
             date = self.serializer_class.check_date(date)
         data = self.app_class.get_meeting_date(community, date)
-        return ret_json(data)
+        return ret_json(data=data)

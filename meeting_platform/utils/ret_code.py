@@ -63,6 +63,7 @@ class RetCode(RetCodeBase):
     STATUS_MEETING_INVALID_START = STATUS_FACILITY_MEETING + 10
     STATUS_MEETING_NOT_EXIST = STATUS_FACILITY_MEETING + 11
     STATUS_MEETING_FAILED_UPDATE = STATUS_FACILITY_MEETING + 12
+    STATUS_MEETING_CANNOT_BE_OPERATE_BY_EXPIRED = STATUS_FACILITY_MEETING + 13
 
     EN_OPERATION = {
         # common
@@ -95,10 +96,11 @@ class RetCode(RetCodeBase):
                                           "view scheduled meetings",
         STATUS_MEETING_DATE_CONFLICT: "Time conflict, please adjust the time to schedule the meeting",
         STATUS_MEETING_CANNOT_BE_OPERATE: "Cannot be deleted or update 1 hours before the meeting",
-        STATUS_MEETING_NO_PERMISSION: "Failed to create a meeting due to insufficient permissions",
+        STATUS_MEETING_NO_PERMISSION: "Failed to operate a meeting due to insufficient permissions",
         STATUS_MEETING_INVALID_GROUP_NAME: "Invalid SIG name",
         STATUS_MEETING_INVALID_START: "The start time should not be earlier than the current time",
         STATUS_MEETING_NOT_EXIST: "Meeting does not exist",
+        STATUS_MEETING_CANNOT_BE_OPERATE_BY_EXPIRED: "Meeting is expired",
 
     }
 
@@ -114,9 +116,9 @@ class RetCode(RetCodeBase):
         RESULT_IS_EMPTY: '结果为空',
         STATUS_PARAMETER_CORRESPONDING_ERROR: '参数响应无效',
         INFORMATION_CHANGE_ERROR: "信息发生变化，请刷新后重试",
-        STATUS_START_LT_END: "开始时间应小于结束时间",
-        STATUS_START_GT_NOW: "开始时间应大于当前时间",
-        STATUS_START_LT_LIMIT: "建议预定60天之内的会议或者活动",
+        STATUS_START_LT_END: "会议开始时间应小于结束时间",
+        STATUS_START_GT_NOW: "会议开始时间应大于当前时间",
+        STATUS_START_LT_LIMIT: "建议预定60天之内的会议",
         STATUS_START_VALID_URL: "请勿输入URL链接，XSS标签等内容",
         STATUS_START_VALID_XSS: "请勿输入XSS标签等内容",
         STATUS_START_VALID_CRLF: "请勿输入\r\n等内容",
@@ -130,11 +132,12 @@ class RetCode(RetCodeBase):
         STATUS_MEETING_FAILED_CREATE: "创建会议失败",
         STATUS_MEETING_FAILED_UPDATE: "修改会议失败",
         STATUS_MEETING_NO_AVAILABLE_HOST: "目前没有可用的主持人，请前往官网查看预约会议",
-        STATUS_MEETING_DATE_CONFLICT: "时间冲突，请调整时间预定会议(距离会议开始和结束半小时内存在会议)",
+        STATUS_MEETING_DATE_CONFLICT: "会议时间冲突，请调整会议预定时间(距离会议开始或结束半小时内存在会议)",
         STATUS_MEETING_CANNOT_BE_OPERATE: "距离会议开始时间小于一个小时，无法修改或删除",
-        STATUS_MEETING_NO_PERMISSION: "权限不足导致创建会议失败",
+        STATUS_MEETING_NO_PERMISSION: "权限不足导致操作会议失败",
         STATUS_MEETING_INVALID_GROUP_NAME: "错误的SIG组名",
         STATUS_MEETING_INVALID_START: "请输入正确的开始时间",
         STATUS_MEETING_NOT_EXIST: "会议不存在",
+        STATUS_MEETING_CANNOT_BE_OPERATE_BY_EXPIRED: "会议已经过期，操作失败",
 
     }
