@@ -61,6 +61,8 @@ class MeetingApp:
     def _is_in_prepare_meeting_duration_before_meeting(self, meeting):
         start_date_str = "{} {}".format(meeting["date"], meeting["start"])
         start_date = datetime.datetime.strptime(start_date_str, "%Y-%m-%d %H:%M")
+        if int((start_date - get_cur_date()).total_seconds()) < 0:
+            raise MyValidationError(RetCode.STATUS_MEETING_CANNOT_BE_OPERATE_BY_EXPIRED)
         if int((start_date - get_cur_date()).total_seconds()) < 60 * 60:
             raise MyValidationError(RetCode.STATUS_MEETING_CANNOT_BE_OPERATE)
 
