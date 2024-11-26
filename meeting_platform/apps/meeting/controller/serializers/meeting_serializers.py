@@ -36,7 +36,7 @@ class MeetingSerializer(ModelSerializer):
         model = Meeting
         fields = ['id', 'sponsor', 'group_name', 'community', 'topic', 'platform', 'date', 'start', 'end',
                   'agenda', 'etherpad', 'email_list', 'mid', 'm_mid', 'is_record', 'upload_status',
-                  'join_url', 'replay_url', 'create_time', 'update_time', 'duration', 'duration_time']
+                  'join_url', 'replay_url', 'create_time', 'update_time', 'is_delete', 'duration', 'duration_time']
         extra_kwargs = {
             'id': {'read_only': True},
             'sponsor': {'required': True},
@@ -58,6 +58,7 @@ class MeetingSerializer(ModelSerializer):
             'replay_url': {'read_only': True},
             'create_time': {'read_only': True},
             'update_time': {'read_only': True},
+            'is_delete': {'read_only': True},
             'duration': {'read_only': True},
             'duration_time': {'read_only': True},
         }
@@ -177,7 +178,7 @@ class SingleMeetingSerializer(ModelSerializer):
         model = Meeting
         fields = ['id', 'sponsor', 'group_name', 'community', 'topic', 'platform', 'date', 'start', 'end',
                   'agenda', 'etherpad', 'email_list', 'mid', 'm_mid', 'is_record', 'upload_status',
-                  'join_url', 'replay_url', 'create_time', 'update_time', 'duration', 'duration_time']
+                  'join_url', 'replay_url', 'create_time', 'update_time', 'is_delete', 'duration', 'duration_time']
         extra_kwargs = {
             'id': {'read_only': True},
             'sponsor': {'read_only': True},
@@ -199,6 +200,7 @@ class SingleMeetingSerializer(ModelSerializer):
             'replay_url': {'read_only': True},
             'create_time': {'read_only': True},
             'update_time': {'read_only': True},
+            'is_delete': {'read_only': True},
             'duration': {'read_only': True},
             'duration_time': {'read_only': True},
         }
