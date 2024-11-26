@@ -15,6 +15,7 @@ from rest_framework.serializers import ModelSerializer
 
 from meeting_platform.utils.check_params import check_field, check_invalid_content, check_email_list, check_date, \
     check_time, check_link, check_duration
+from meeting_platform.utils.common import mask_email_full
 from meeting_platform.utils.ret_api import MyValidationError
 from meeting_platform.utils.ret_code import RetCode
 
@@ -28,6 +29,7 @@ class MeetingSerializer(ModelSerializer):
 
     duration = serializers.SerializerMethodField()
     duration_time = serializers.SerializerMethodField()
+    email_list = serializers.SerializerMethodField()
 
     class Meta:
         """Meta Meta"""
@@ -154,11 +156,21 @@ class MeetingSerializer(ModelSerializer):
         """get duration time"""
         return obj.start.split(':')[0] + ':00' + '-' + str(math.ceil(float(obj.end.replace(':', '.')))) + ':00'
 
+    def get_email_list(self, obj):
+        """get email list"""
+        email_list = obj.email_list
+        if email_list:
+            email_strs = email_list.split(";")
+            desensitization_email = [mask_email_full(email) for email in email_strs]
+            return ";".join(desensitization_email)
+        return email_list
+
 
 class SingleMeetingSerializer(ModelSerializer):
     """UpdateMeetingSerializer for update meeting"""
     duration = serializers.SerializerMethodField()
     duration_time = serializers.SerializerMethodField()
+    email_list = serializers.SerializerMethodField()
 
     class Meta:
         """Meta Meta"""
@@ -245,3 +257,12 @@ class SingleMeetingSerializer(ModelSerializer):
     def get_duration_time(self, obj):
         """get duration time"""
         return obj.start.split(':')[0] + ':00' + '-' + str(math.ceil(float(obj.end.replace(':', '.')))) + ':00'
+
+    def get_email_list(self, obj):
+        """get email list"""
+        email_list = obj.email_list
+        if email_list:
+            email_strs = email_list.split(";")
+            desensitization_email = [mask_email_full(email) for email in email_strs]
+            return ";".join(desensitization_email)
+        return email_list

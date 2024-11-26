@@ -97,3 +97,15 @@ def func_retry(tries=3, delay=2):
         return inner
 
     return deco_retry
+
+
+def mask_email_full(email):
+    """Desensitization email"""
+    try:
+        username, domain = email.split('@')
+        masked_username = username[:1] + '*' * (len(username) - 1)
+        domain_name, domain_suffix = domain.split('.', 1)
+        masked_domain = domain_name[:1] + '*' * (len(domain_name) - 1)
+        return f"{masked_username}@{masked_domain}.{domain_suffix}"
+    except ValueError:
+        return str()
