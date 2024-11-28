@@ -29,7 +29,6 @@ class MeetingSerializer(ModelSerializer):
 
     duration = serializers.SerializerMethodField()
     duration_time = serializers.SerializerMethodField()
-    email_list = serializers.SerializerMethodField()
 
     class Meta:
         """Meta Meta"""
@@ -157,9 +156,13 @@ class MeetingSerializer(ModelSerializer):
         """get duration time"""
         return obj.start.split(':')[0] + ':00' + '-' + str(math.ceil(float(obj.end.replace(':', '.')))) + ':00'
 
-    def get_email_list(self, obj):
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["email_list"] = self._to_anonymous_email_list(data.get("email_list"))
+        return data
+
+    def _to_anonymous_email_list(self, email_list):
         """get email list"""
-        email_list = obj.email_list
         if email_list:
             email_strs = email_list.split(";")
             desensitization_email = [mask_email_full(email) for email in email_strs]
