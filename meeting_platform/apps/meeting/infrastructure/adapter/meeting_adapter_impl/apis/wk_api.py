@@ -112,7 +112,8 @@ class WkApi(MeetingAdapter):
                                  timeout=self.time_out)
         resp_dict = {}
         if response.status_code != 200:
-            logger.error('[WkApi] Fail to create meeting, status_code is {}'.format(response.status_code))
+            logger.error('[WkApi] Fail to create meeting, status_code is {}, and content:{}'.
+                         format(response.status_code, response.content.decode("utf-8")))
             return response.status_code, resp_dict
         resp_dict['mid'] = response.json()[0]['conferenceID']
         resp_dict['start_url'] = response.json()[0]['chairJoinUri']
@@ -153,6 +154,9 @@ class WkApi(MeetingAdapter):
             data['recordType'] = 0
         response = requests.put(self._get_url(self.update_path), params=params, headers=headers, data=json.dumps(data),
                                 timeout=self.time_out)
+        if not str(response.status_code).startswith("20"):
+            logger.error("[WkApi] modify the meeting failed and code:{} and content:{}"
+                         .format(response.status_code, response.content.decode("utf-8")))
         return response.status_code
 
     def delete(self, action):
