@@ -118,7 +118,8 @@ class TencentApi(MeetingAdapter):
             'host_id': self.host_id
         }
         if r.status_code != 200:
-            logger.error('[TencentApi] Fail to create meeting, status_code is {}'.format(r.status_code))
+            logger.error('[TencentApi] Fail to create meeting, status_code is {} and content:{}'
+                         .format(r.status_code, r.content.decode("utf-8")))
             return r.status_code, resp_dict
         ret_json = r.json()
         resp_dict['mid'] = ret_json['meeting_info_list'][0]['meeting_code']
@@ -181,7 +182,7 @@ class TencentApi(MeetingAdapter):
                           timeout=self.time_out)
         if r.status_code != 200:
             logger.error('Fail to cancel meeting {}'.format(mid))
-            logger.error(r.json())
+            logger.error(r.content.decode("utf-8"))
             return r.status_code
         logger.info('[TencentApi] Cancel meeting {}'.format(mid))
         return r.status_code
