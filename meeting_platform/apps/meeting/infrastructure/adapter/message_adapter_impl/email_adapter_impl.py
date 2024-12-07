@@ -84,12 +84,11 @@ class EmailTemplate:
             body = read_content(settings.TEMPLATE.get("TEMPLATE_SUMMARY_RECORDING"))
         else:
             raise Exception("invalid {}/{}".format(self.agenda, self.record))
-        body_of_email = body.replace('{{sig_name}}', '{0}').replace('{{start_time}}', '{1}'). \
-            replace('{{join_url}}', '{2}').replace('{{topic}}', '{3}'). \
-            replace('{{etherpad}}', '{4}').replace('{{platform}}', '{5}'). \
-            replace('{{portal_zh}}', '{6}').replace('{{portal_en}}', '{7}'). \
-            format(self.sig_name, self.start_time, self.join_url, self.topic, self.etherpad, self.platform,
-                   self.portal_zh, self.portal_en)
+        body_of_email = body.replace('{{sig_name}}', self.sig_name).replace('{{start_time}}', self.start_time). \
+            replace('{{join_url}}', self.join_url).replace('{{topic}}', self.topic). \
+            replace('{{etherpad}}', self.etherpad).replace('{{platform}}', self.platform). \
+            replace('{{portal_zh}}', self.portal_zh).replace('{{portal_en}}', self.portal_en). \
+            replace('{{summary}}', str(self.agenda))
         return MIMEText(body_of_email, _charset='utf-8')
 
     def get_delete_meeting_template_by_meeting_info(self):
