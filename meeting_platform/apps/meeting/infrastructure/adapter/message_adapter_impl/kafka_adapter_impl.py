@@ -4,7 +4,7 @@
 # @Author  : Tom_zc
 # @FileName: kafka_client.py
 # @Software: PyCharm
-
+import datetime
 import logging
 from abc import ABC
 
@@ -62,6 +62,8 @@ class UpdateMessageKafKaAdapterImpl(MessageKafKaAdapterImpl):
             logger.info("[CreateMessageAdapterImpl] {} kafka config is empty, Please ignore."
                         .format(meeting["community"]))
             return
+        if isinstance(meeting.get("update_time"), datetime.datetime):
+            meeting["update_time"] = meeting["update_time"].strftime("%Y-%m-%d %H:%M")
         with KafKaClient(kafka_info) as client:
             data = {
                 "action": "update_meeting",
@@ -91,5 +93,5 @@ class DeleteMessageKafKaAdapterImpl(MessageKafKaAdapterImpl):
                 "msg": meeting
             }
             client.send_msg(kafka_info["KAFKA_TOPIC"], data)
-            logger.info("[UpdateMessageKafKaAdapterImpl] {}/{}/{}/{}/{} send delete kafka msg success".format(
+            logger.info("[DeleteMessageKafKaAdapterImpl] {}/{}/{}/{}/{} send delete kafka msg success".format(
                 meeting["community"], meeting["platform"], meeting["topic"], meeting["mid"], meeting["id"]))
