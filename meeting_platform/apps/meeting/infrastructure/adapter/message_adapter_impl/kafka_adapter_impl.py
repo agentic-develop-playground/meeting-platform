@@ -55,11 +55,11 @@ class UpdateMessageKafKaAdapterImpl(MessageKafKaAdapterImpl):
     def send_message(self, meeting):
         kafka_info = self.get_client(meeting)
         if not kafka_info or not isinstance(kafka_info, dict):
-            logger.info("[CreateMessageAdapterImpl] {} kafka_info config is empty, Please ignore."
+            logger.info("[UpdateMessageKafKaAdapterImpl] {} kafka_info config is empty, Please ignore."
                         .format(meeting["community"]))
             return
         if not kafka_info.get("KAFKA_TOPIC") or not kafka_info.get("KAFKA_SERVER"):
-            logger.info("[CreateMessageAdapterImpl] {} kafka config is empty, Please ignore."
+            logger.info("[UpdateMessageKafKaAdapterImpl] {} kafka config is empty, Please ignore."
                         .format(meeting["community"]))
             return
         if isinstance(meeting.get("update_time"), datetime.datetime):
@@ -80,13 +80,17 @@ class DeleteMessageKafKaAdapterImpl(MessageKafKaAdapterImpl):
     def send_message(self, meeting):
         kafka_info = self.get_client(meeting)
         if not kafka_info or not isinstance(kafka_info, dict):
-            logger.info("[CreateMessageAdapterImpl] {} kafka_info config is empty, Please ignore."
+            logger.info("[DeleteMessageKafKaAdapterImpl] {} kafka_info config is empty, Please ignore."
                         .format(meeting["community"]))
             return
         if not kafka_info.get("KAFKA_TOPIC") or not kafka_info.get("KAFKA_SERVER"):
-            logger.info("[CreateMessageAdapterImpl] {} kafka config is empty, Please ignore."
+            logger.info("[DeleteMessageKafKaAdapterImpl] {} kafka config is empty, Please ignore."
                         .format(meeting["community"]))
             return
+        if isinstance(meeting.get("create_time"), datetime.datetime):
+            meeting["create_time"] = meeting["create_time"].strftime("%Y-%m-%d %H:%M")
+        if isinstance(meeting.get("update_time"), datetime.datetime):
+            meeting["update_time"] = meeting["update_time"].strftime("%Y-%m-%d %H:%M")
         with KafKaClient(kafka_info) as client:
             data = {
                 "action": "delete_meeting",
