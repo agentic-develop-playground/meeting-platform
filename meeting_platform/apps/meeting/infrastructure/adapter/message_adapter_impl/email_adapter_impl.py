@@ -6,6 +6,7 @@
 import datetime
 import icalendar
 import pytz
+import copy
 import logging
 
 from email import encoders
@@ -185,11 +186,13 @@ class CreateMessageEmailAdapterImpl(MessageAdapter):
 class UpdateMessageEmailAdapterImpl(MessageAdapter):
     @func_retry()
     def send_message(self, meeting):
-        meeting["topic"] = '[Update] ' + meeting["topic"]
-        email_template = EmailTemplate(meeting)
+        email_meeting = copy.deepcopy(meeting)
+        email_meeting["topic"] = '[Update] ' + email_meeting["topic"]
+        email_template = EmailTemplate(email_meeting)
         if not email_template.toaddrs_list:
             logger.info('[UpdateMessageEmailAdapterImpl/send_message] no email list to send: {}/{}/{}/{}/{}'.format(
-                meeting["community"], meeting["platform"], meeting["topic"], meeting["mid"], meeting["id"]))
+                email_meeting["community"], email_meeting["platform"], email_meeting["topic"], email_meeting["mid"],
+                email_meeting["id"]))
             return
         # 构造邮件
         msg = MIMEMultipart()
@@ -200,22 +203,25 @@ class UpdateMessageEmailAdapterImpl(MessageAdapter):
         part = email_template.add_calendar_by_meeting_info()
         msg.attach(part)
         # 完善邮件信息
-        msg['Subject'] = meeting["topic"]
+        msg['Subject'] = email_meeting["topic"]
         msg['To'] = ','.join(email_template.toaddrs_list)
-        email_adapter = EmailAdapter(meeting["community"])
+        email_adapter = EmailAdapter(email_meeting["community"])
         email_adapter.send_message(email_template.toaddrs_list, msg)
         logger.info('[UpdateMessageEmailAdapterImpl/send_message] send update meeting email success: {}/{}/{}/{}/{}'.
-                    format(meeting["community"], meeting["platform"], meeting["topic"], meeting["mid"], meeting["id"]))
+                    format(email_meeting["community"], email_meeting["platform"], email_meeting["topic"], email_meeting["mid"],
+                           email_meeting["id"]))
 
 
 class DeleteMessageEmailAdapterImpl(MessageAdapter):
     @func_retry()
     def send_message(self, meeting):
-        meeting["topic"] = '[Cancel] ' + meeting["topic"]
-        email_template = EmailTemplate(meeting)
+        email_meeting = copy.deepcopy(meeting)
+        email_meeting["topic"] = '[Cancel] ' + email_meeting["topic"]
+        email_template = EmailTemplate(email_meeting)
         if not email_template.toaddrs_list:
             logger.info('[DeleteMessageEmailAdapterImpl/send_message] no email list to send: {}/{}/{}/{}/{}'.format(
-                meeting["community"], meeting["platform"], meeting["topic"], meeting["mid"], meeting["id"]))
+                email_meeting["community"], email_meeting["platform"], email_meeting["topic"], email_meeting["mid"],
+                email_meeting["id"]))
             return
         # 构造邮件
         msg = MIMEMultipart()
@@ -226,9 +232,10 @@ class DeleteMessageEmailAdapterImpl(MessageAdapter):
         part = email_template.remove_calender_by_meeting_info()
         msg.attach(part)
         # 完善邮件信息
-        msg['Subject'] = meeting["topic"]
+        msg['Subject'] = email_meeting["topic"]
         msg['To'] = ",".join(email_template.toaddrs_list)
-        email_adapter = EmailAdapter(meeting["community"])
+        email_adapter = EmailAdapter(email_meeting["community"])
         email_adapter.send_message(email_template.toaddrs_list, msg)
         logger.info('[DeleteMessageAdapterImpl/send_message] send cancel email success: {}/{}/{}/{}/{}'.format(
-            meeting["community"], meeting["platform"], meeting["topic"], meeting["mid"], meeting["id"]))
+            email_meeting["community"], email_meeting["platform"], email_meeting["topic"], email_meeting["mid"],
+            email_meeting["id"]))
