@@ -5,16 +5,26 @@
 # @FileName: kafka_client.py
 # @Software: PyCharm
 import json
+import ssl
 
 from kafka import KafkaProducer
 
 
 class KafKaClient:
-    def __init__(self, server=None):
-        if server is None:
-            server = ["localhost:9092"]
+    def __init__(self, kafka_info):
+        server = kafka_info["KAFKA_SERVER"]
+        context = ssl.create_default_context()
+        context.load_verify_locations(kafka_info["KAFKA_CRT_PATH"])
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_REQUIRED
         self.client = KafkaProducer(
             bootstrap_servers=server,
+            security_protocol="SASL_SSL",
+            sasl_mechanism='PLAIN',
+            sasl_plain_username=kafka_info["KAFKA_USERNAME"],
+            sasl_plain_password=kafka_info["KAFKA_PASSWORD"],
+            ssl_check_hostname=False,
+            ssl_context=context,
             value_serializer=lambda v: json.dumps(v).encode()
         )
 
