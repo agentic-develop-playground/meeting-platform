@@ -28,7 +28,12 @@ else:
 if CONF["IS_DELETE_CONFIG"]:
     ALL_CONFIG_PATH_LIST = [CONFIG_PATH, VAULT_PATH, CONF["MYSQL_TLS_PEM_PATH"],
                             CONF["UWSGI_TLS_CRT_PATH"], CONF["UWSGI_TLS_KEY_PATH"]]
-    map(lambda x: os.remove(x), ALL_CONFIG_PATH_LIST)
+    for config_path in ALL_CONFIG_PATH_LIST:
+        if os.path.exists(config_path):
+            os.remove(config_path)
+            print("delete config {} success".format(config_path))
+        else:
+            print("config {} is not exist".format(config_path))
 
 # Quick-start development settings - unsuitable for production
 
