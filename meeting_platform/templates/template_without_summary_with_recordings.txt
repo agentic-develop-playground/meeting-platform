@@ -15,13 +15,13 @@
 
 Hello!
 
-{{sig_name}} invites you to attend the {{platform}} conference(auto recording) will be held at {{start_time}},
+{{sig_name}} invites you to attend the {{platform}} conference(auto recording) will be held at {{start_time}}
 
-The subject of the conference is {{topic}},
+The subject of the conference is {{topic}}
 
-You can join the meeting at {{join_url}}.
+You can join the meeting at {{join_url}}
 
-Add topics at {{etherpad}}.
+Add topics at {{etherpad}}
 
 More information: {{portal_en}}
 

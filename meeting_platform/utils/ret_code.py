@@ -64,6 +64,8 @@ class RetCode(RetCodeBase):
     STATUS_MEETING_NOT_EXIST = STATUS_FACILITY_MEETING + 11
     STATUS_MEETING_FAILED_UPDATE = STATUS_FACILITY_MEETING + 12
     STATUS_MEETING_CANNOT_BE_OPERATE_BY_EXPIRED = STATUS_FACILITY_MEETING + 13
+    STATUS_MEETING_CREATE_COUNT_LIMIT = STATUS_FACILITY_MEETING + 14
+    STATUS_MEETING_MODIFY_COUNT_LIMIT = STATUS_FACILITY_MEETING + 15
 
     EN_OPERATION = {
         # common
@@ -101,6 +103,8 @@ class RetCode(RetCodeBase):
         STATUS_MEETING_INVALID_START: "The start time should not be earlier than the current time",
         STATUS_MEETING_NOT_EXIST: "Meeting does not exist",
         STATUS_MEETING_CANNOT_BE_OPERATE_BY_EXPIRED: "Meeting is expired",
+        STATUS_MEETING_CREATE_COUNT_LIMIT: "The meeting created today has exceeded the limit. Please try again tomorrow",
+        STATUS_MEETING_MODIFY_COUNT_LIMIT: "Modifying the meeting has exceeded the limit",
 
     }
 
@@ -139,5 +143,7 @@ class RetCode(RetCodeBase):
         STATUS_MEETING_INVALID_START: "请输入正确的开始时间",
         STATUS_MEETING_NOT_EXIST: "会议不存在",
         STATUS_MEETING_CANNOT_BE_OPERATE_BY_EXPIRED: "会议已经过期，操作失败",
+        STATUS_MEETING_CREATE_COUNT_LIMIT: "今日创建会议已超限制，请明日再重试",
+        STATUS_MEETING_MODIFY_COUNT_LIMIT: "修改会议已超限制",
 
     }

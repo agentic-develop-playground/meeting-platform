@@ -19,6 +19,10 @@ class MeetingDao:
                                       date=date, end__gt=start_search, start__lt=end_search).exclude(id=meeting_id)
 
     @classmethod
+    def get_today_meeting_counts(cls, community, sponsor, date):
+        return cls.dao.objects.filter(community=community, sponsor=sponsor, create_time__date=date).count()
+
+    @classmethod
     def get_queryset(cls):
         return cls.dao.objects.all()
 
