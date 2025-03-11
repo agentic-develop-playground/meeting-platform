@@ -8,7 +8,7 @@ ARG gid=1000
 
 # 1.install
 RUN yum install -y shadow wget git openssl openssl-devel tzdata python3-devel mariadb-devel python3-pip libXext  \
-    libjpeg xorg-x11-fonts-75dpi xorg-x11-fonts-Type1 gcc 
+    libjpeg xorg-x11-fonts-75dpi xorg-x11-fonts-Type1 gcc ffmpeg
 RUN groupadd -g ${gid} ${group}
 RUN useradd -u ${uid} -g ${group} -d /home/meetingplatform/ -s /sbin/nologin -m ${user}
 
