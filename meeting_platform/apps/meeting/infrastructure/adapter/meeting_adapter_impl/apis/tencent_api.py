@@ -20,6 +20,8 @@ from meeting_platform.utils.file_stream import download_big_file
 from meeting.domain.repository.meeting_adapter import MeetingAdapter
 from meeting.infrastructure.adapter.meeting_adapter_impl.actions.tencent_action import TencentCreateAction, \
     TencentDeleteAction, TencentGetParticipantsAction, TencentGetVideo, TencentUpdateAction
+from meeting_platform.utils.ret_api import MyValidationError
+from meeting_platform.utils.ret_code import RetCode
 
 logger = logging.getLogger('log')
 
@@ -162,6 +164,10 @@ class TencentApi(MeetingAdapter):
         if r.status_code != 200:
             logger.error('[TencentApi] Fail to update meeting, status_code is {},and err:{}'
                          .format(r.status_code, r.content.decode("utf-8")))
+            resp_json = r.json()
+            if isinstance(resp_json, dict) and resp_json.get("error_info") is not None:
+                if resp_json["error_info"].get("new_error_code") == 101014151:
+                    raise MyValidationError(RetCode.STATUS_MEETING_PUT_RUNNING)
             return r.status_code
         return r.status_code
 
