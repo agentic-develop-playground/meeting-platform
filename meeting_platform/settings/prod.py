@@ -239,6 +239,11 @@ BILI_VIDEO_MIN_SIZE = 1024 * 1024 * 10
 # 上传B站的有效时间,单位day
 BILI_UPLOAD_DATE = 7
 
+# 单人单天创建会议的限制次数
+MEETING_CREATE_COUNT = 10
+# 单个会议修改会议的限制次数
+MEETING_MODIFY_COUNT = 5
+
 CONF = None
 VAULT_CONF = None
 MYSQL_TLS_PEM_CONTENT = None

@@ -143,6 +143,10 @@ class MeetingSerializer(ModelSerializer):
             logger.error("invalid etherpad:{}".format(etherpad))
             raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
         check_duration(attrs["start"], attrs["end"], attrs["date"], datetime.now())
+        if attrs["community"] not in settings.COMMUNITY_HOST.keys():
+            logger.error('the community of {} have no resources in COMMUNITY_HOST in settings.'
+                         .format(attrs["community"]))
+            raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
         if attrs["platform"] not in settings.COMMUNITY_HOST[attrs["community"]].keys():
             logger.error('platform {} is not exist in COMMUNITY_HOST.'.format(attrs["platform"]))
             raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)

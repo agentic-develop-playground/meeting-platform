@@ -10,6 +10,7 @@ import secrets
 import traceback
 
 from django.conf import settings
+from django.utils import timezone
 from django.forms import model_to_dict
 
 from meeting_platform.utils.common import start_thread, get_cur_date
@@ -74,8 +75,16 @@ class MeetingApp:
             except Exception as e:
                 logger.error("[MeetingApp/_send_message] err:{}, and traceback:{}".format(e, traceback.format_exc()))
 
+    def _calc_meeting_count(self, meeting):
+        today = timezone.now().date()
+        meeting_counts = self.meeting_dao.get_today_meeting_counts(meeting["community"], meeting["sponsor"], today)
+        if meeting_counts >= settings.MEETING_CREATE_COUNT:
+            raise MyValidationError(RetCode.STATUS_MEETING_CREATE_COUNT_LIMIT)
+
     def create(self, meeting):
         """create meeting"""
+        # check the meeting limit
+        self._calc_meeting_count(meeting)
         # check meeting-conflict
         available_host_id = self._get_and_check_conflict_meetings_by_date(meeting)
         meeting["host_id"] = secrets.choice(available_host_id)
@@ -105,6 +114,9 @@ class MeetingApp:
         set_log_thread_local(request, log_key, [meeting["community"], meeting["topic"], meeting_id])
         meeting.update(meeting_data)
         meeting.update({"sequence": meeting["sequence"] + 1})
+        # check modify meeting count
+        if meeting["sequence"] > settings.MEETING_MODIFY_COUNT + 1:
+            raise MyValidationError(RetCode.STATUS_MEETING_MODIFY_COUNT_LIMIT)
         # check meeting-conflict
         self._get_and_check_conflict_meetings_by_date(meeting, meeting_id)
         # check not update in the before in start date
