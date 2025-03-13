@@ -78,7 +78,7 @@ class MeetingApp:
     def _calc_meeting_count(self, meeting):
         today = timezone.now().date()
         meeting_counts = self.meeting_dao.get_today_meeting_counts(meeting["community"], meeting["sponsor"], today)
-        if meeting_counts > settings.MEETING_CREATE_COUNT:
+        if meeting_counts >= settings.MEETING_CREATE_COUNT:
             raise MyValidationError(RetCode.STATUS_MEETING_CREATE_COUNT_LIMIT)
 
     def create(self, meeting):
@@ -115,7 +115,7 @@ class MeetingApp:
         meeting.update(meeting_data)
         meeting.update({"sequence": meeting["sequence"] + 1})
         # check modify meeting count
-        if meeting["sequence"] > settings.MEETING_MODIFY_COUNT:
+        if meeting["sequence"] > settings.MEETING_MODIFY_COUNT + 1:
             raise MyValidationError(RetCode.STATUS_MEETING_MODIFY_COUNT_LIMIT)
         # check meeting-conflict
         self._get_and_check_conflict_meetings_by_date(meeting, meeting_id)
