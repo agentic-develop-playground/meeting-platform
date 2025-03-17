@@ -8,6 +8,7 @@ from django.conf import settings
 
 from bilibili_api import video_uploader, sync, Credential
 from bilibili_api.user import User
+from bilibili_api.video_uploader import Lines
 
 
 class BiliClient(object):
@@ -37,7 +38,7 @@ class BiliClient(object):
             'tid': 124,
             'title': title
         }
-        uploader = video_uploader.VideoUploader([page], meta, self.credential, cover=thumbnail_path)
+        uploader = video_uploader.VideoUploader([page], meta, self.credential, cover=thumbnail_path, line=Lines.QN)
         res = sync(uploader.start())
         return res
 
