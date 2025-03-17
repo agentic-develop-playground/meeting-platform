@@ -253,8 +253,8 @@ class WkApi(MeetingAdapter):
             'X-Access-Token': access_token
         }
         params = {
-            'startDate': tn * 1000,
-            'endDate': (tn - self.bili_upload_date * 3600 * 24) * 1000,
+            'endDate': tn * 1000,
+            'startDate': (tn - self.bili_upload_date * 3600 * 24) * 1000,
             'limit': 100
         }
         response = requests.get(self._get_url(self.list_recordings_path), headers=headers, params=params,
@@ -291,8 +291,8 @@ class WkApi(MeetingAdapter):
         end_time = date + ' ' + end
         status, recordings = self._list_recordings()
         if status != 200:
-            logger.error('[WkApi/_get_records] {}/{}:Fail to get welink recordings, and return is:{}.'.
-                         format(self.community, mid, status))
+            logger.error('[WkApi/_get_records] {}/{}:Fail to get welink recordings, and return is:{}/{}.'.
+                         format(self.community, mid, status, recordings))
             return []
         if recordings['count'] == 0:
             logger.error('[WkApi/_get_records] {}/{}:get empty welink recordings.'

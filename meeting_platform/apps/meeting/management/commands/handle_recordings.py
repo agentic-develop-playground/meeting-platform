@@ -7,6 +7,7 @@
 import os
 import shutil
 import logging
+import datetime
 import traceback
 from multiprocessing.dummy import Pool as ThreadPool
 
@@ -107,25 +108,35 @@ class HandleRecording:
         all_vid = adapter_impl.search_all_videos()
         uploaded_bili_mid = self.meeting_dao.get_uploaded_mid_by_community_and_status(self.community,
                                                                                       UploadStatus.UPLOAD_BILI.value)
-        exist_mid = list(set(all_vid) - set(uploaded_bili_mid))
+        exist_mid = list(set(uploaded_bili_mid) - set(all_vid))
         logger.info('[HandleRecording/check_upload_results] {}:Find uploaded bili video:{}'.
                     format(self.community, ",".join(exist_mid)))
         self.meeting_dao.update_upload_status_by_community_and_mid(self.community, exist_mid,
                                                                    UploadStatus.UPLOAD_ALL.value)
 
+    def _get_valid_query_range(self):
+        cur_date = datetime.datetime.now()
+        start_date = str(cur_date - datetime.timedelta(days=settings.BILI_UPLOAD_DATE))
+        end_date = cur_date.strftime('%Y-%m-%d')
+        return start_date, end_date
+
     def upload_all(self):
         """upload all: get video --> upload obs ---> upload bili"""
-        meeting_infos = self.meeting_dao.get_upload_all_by_community_and_status(self.community, UploadStatus.INIT.value)
+        start_date, end_date = self._get_valid_query_range()
+        meeting_infos = self.meeting_dao.get_upload_all_by_community_and_status(self.community, UploadStatus.INIT.value,
+                                                                                start_date, end_date)
         upload_mid = ",".join([str(i.mid) for i in meeting_infos])
-        logger.info("[HandleRecording/upload_all] {}: Find need to upload mid({})".format(upload_mid, self.community))
+        logger.info("[HandleRecording/upload_all]: Find need to upload mid({}/{})".format(upload_mid, self.community))
         for meeting in meeting_infos:
             try:
                 meeting = model_to_dict(meeting)
                 video_path = self._get_video_path(meeting)
                 if not video_path:
+                    logger.info("[HandleRecording/upload_all]: Find empty video_path({})".format(meeting["mid"]))
                     continue
                 cover_path = self._get_video_cover_path(video_path, meeting)
                 if not cover_path:
+                    logger.info("[HandleRecording/upload_all]: Find empty cover_path({})".format(meeting["mid"]))
                     continue
                 ret = self.upload_obs_adapter_impl(meeting).upload(video_path, cover_path)
                 if not ret:
@@ -136,13 +147,16 @@ class HandleRecording:
                     raise Exception("upload bili failed")
                 self.meeting_dao.update_by_id(meeting["id"], upload_status=UploadStatus.UPLOAD_BILI.value,
                                               replay_url=replay_url)
+                logger.info("[HandleRecording/upload_all]: handler success({})".format(meeting["mid"]))
             except Exception as e:
                 logger.error("[HandleRecording/upload] e:{}, traceback:{}".format(str(e), traceback.format_exc()))
 
     def upload_bili(self):
         """upload bili: get video --> upload bili, this is pointer to upload bili failed"""
+        start_date, end_date = self._get_valid_query_range()
         meeting_infos = self.meeting_dao.get_upload_all_by_community_and_status(self.community,
-                                                                                UploadStatus.UPLOAD_OBS.value)
+                                                                                UploadStatus.UPLOAD_OBS.value,
+                                                                                start_date, end_date)
         upload_mid = ",".join([str(i.mid) for i in meeting_infos])
         logger.info("[HandleRecording/upload_bili] {}: Find need to upload mid({})".format(upload_mid, self.community))
         for meeting in meeting_infos:
@@ -150,13 +164,16 @@ class HandleRecording:
                 meeting = model_to_dict(meeting)
                 video_path = self._get_video_path(meeting)
                 if not video_path:
+                    logger.info("[HandleRecording/upload_bili]: Find empty video_path({})".format(meeting["mid"]))
                     continue
                 cover_path = self._get_video_cover_path(video_path, meeting)
                 if not cover_path:
+                    logger.info("[HandleRecording/upload_bili]: Find empty cover_path({})".format(meeting["mid"]))
                     continue
                 replay_url = self.upload_bili_adapter_impl(meeting).upload(video_path, cover_path)
                 if not replay_url:
                     raise Exception("upload bili failed")
+                logger.error("the replay_url is:{}".format(replay_url))
                 self.meeting_dao.update_by_id(meeting["id"], upload_status=UploadStatus.UPLOAD_BILI.value,
                                               replay_url=replay_url)
             except Exception as e:
@@ -178,11 +195,6 @@ def work_flow(handle_recording: HandleRecording):
         logger.error("[work_flow] e:{}, traceback:{}".format(e, traceback.format_exc()))
 
 
-def clear_env():
-    tmpdir = get_temp_dir()
-    rm_dir(tmpdir)
-
-
 class Command(BaseCommand):
     def handle(self, *args, **options):
         logger.info('-' * 20 + ' start to handler recordings' + '-' * 20)
@@ -196,5 +208,3 @@ class Command(BaseCommand):
             logger.info('-' * 20 + 'All done' + '-' * 20)
         except Exception as e:
             logger.error("[handle_recordings/handle] err:{}, traceback:{}".format(str(e), traceback.format_exc()))
-        finally:
-            clear_env()
