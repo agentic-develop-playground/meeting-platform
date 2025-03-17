@@ -7,6 +7,7 @@
 import os
 import shutil
 import logging
+import datetime
 import traceback
 from multiprocessing.dummy import Pool as ThreadPool
 
@@ -113,9 +114,17 @@ class HandleRecording:
         self.meeting_dao.update_upload_status_by_community_and_mid(self.community, exist_mid,
                                                                    UploadStatus.UPLOAD_ALL.value)
 
+    def _get_valid_query_range(self):
+        cur_date = datetime.datetime.now()
+        start_date = str(cur_date - datetime.timedelta(days=settings.BILI_UPLOAD_DATE))
+        end_date = cur_date.strftime('%Y-%m-%d')
+        return start_date, end_date
+
     def upload_all(self):
         """upload all: get video --> upload obs ---> upload bili"""
-        meeting_infos = self.meeting_dao.get_upload_all_by_community_and_status(self.community, UploadStatus.INIT.value)
+        start_date, end_date = self._get_valid_query_range()
+        meeting_infos = self.meeting_dao.get_upload_all_by_community_and_status(self.community, UploadStatus.INIT.value,
+                                                                                start_date, end_date)
         upload_mid = ",".join([str(i.mid) for i in meeting_infos])
         logger.info("[HandleRecording/upload_all]: Find need to upload mid({}/{})".format(upload_mid, self.community))
         for meeting in meeting_infos:
@@ -144,8 +153,10 @@ class HandleRecording:
 
     def upload_bili(self):
         """upload bili: get video --> upload bili, this is pointer to upload bili failed"""
+        start_date, end_date = self._get_valid_query_range()
         meeting_infos = self.meeting_dao.get_upload_all_by_community_and_status(self.community,
-                                                                                UploadStatus.UPLOAD_OBS.value)
+                                                                                UploadStatus.UPLOAD_OBS.value,
+                                                                                start_date, end_date)
         upload_mid = ",".join([str(i.mid) for i in meeting_infos])
         logger.info("[HandleRecording/upload_bili] {}: Find need to upload mid({})".format(upload_mid, self.community))
         for meeting in meeting_infos:

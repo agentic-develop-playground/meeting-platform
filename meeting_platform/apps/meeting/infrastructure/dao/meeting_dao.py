@@ -5,6 +5,7 @@
 # @FileName: meeting_adapter.py
 # @Software: PyCharm
 from meeting.models import Meeting
+from django.db.models import Q
 
 
 class MeetingDao:
@@ -53,5 +54,6 @@ class MeetingDao:
             update(upload_status=status)
 
     @classmethod
-    def get_upload_all_by_community_and_status(cls, community, status):
-        return cls.dao.objects.filter(is_delete=0, community=community, is_record=True, upload_status=status).all()
+    def get_upload_all_by_community_and_status(cls, community, status, start_date, end_date):
+        return cls.dao.objects.filter(is_delete=0, community=community, is_record=True, upload_status=status) \
+            .filter(Q(date__gt=start_date) & Q(date__lte=end_date)).all()
