@@ -239,6 +239,9 @@ BILI_VIDEO_MIN_SIZE = 1024 * 1024 * 10
 # 上传B站的有效时间,单位day
 BILI_UPLOAD_DATE = 7
 
+# 查询会议信息（包括参会者）的有效时间,单位day
+QUERY_MEETING_DATE = 7
+
 # 单人单天创建会议的限制次数
 MEETING_CREATE_COUNT = 10
 # 单个会议修改会议的限制次数

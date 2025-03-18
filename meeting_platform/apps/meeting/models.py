@@ -56,3 +56,19 @@ class Meeting(models.Model):
 
     def __str__(self):
         return "{}/{}/{}".format(self.community, self.mid, self.topic)
+
+
+class MeetingParticipants(models.Model):
+    """meeting model"""
+    meeting = models.ForeignKey(Meeting, on_delete=models.CASCADE)
+    participants = models.TextField(verbose_name='会议议程', default='', null=True, blank=True)
+
+    objects = models.Manager()
+
+    class Meta:
+        db_table = "meetings_participants"
+        verbose_name = "meetings_participants"
+        verbose_name_plural = verbose_name
+
+    def __str__(self):
+        return "{}".format(self.meeting)
