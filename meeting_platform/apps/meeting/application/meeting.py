@@ -18,7 +18,7 @@ from meeting_platform.utils.operation_log import set_log_thread_local, log_key
 from meeting_platform.utils.ret_api import MyValidationError
 from meeting_platform.utils.ret_code import RetCode
 from meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl import MeetingAdapterImpl
-from meeting.infrastructure.dao import meeting_dao
+from meeting.infrastructure.dao import meeting_dao, meeting_participants_dao
 from meeting.infrastructure.adapter.message_adapter_impl.email_adapter_impl import CreateMessageEmailAdapterImpl, \
     DeleteMessageEmailAdapterImpl, UpdateMessageEmailAdapterImpl
 from meeting.infrastructure.adapter.message_adapter_impl.kafka_adapter_impl import CreateMessageKafKaAdapterImpl, \
@@ -29,6 +29,7 @@ logger = logging.getLogger("log")
 
 class MeetingApp:
     meeting_dao = meeting_dao.MeetingDao
+    meeting_participants_dao = meeting_participants_dao.MeetingParticipantsDao
     meeting_adapter_impl = MeetingAdapterImpl()
     create_message_adapter_impl = [CreateMessageEmailAdapterImpl, CreateMessageKafKaAdapterImpl]
     update_message_adapter_impl = [UpdateMessageEmailAdapterImpl, UpdateMessageKafKaAdapterImpl]
@@ -158,7 +159,10 @@ class MeetingApp:
         if not meeting:
             logger.error('[MeetingApp/get_participants]Invalid meeting id:{}'.format(meeting_id))
             raise MyValidationError(RetCode.INFORMATION_CHANGE_ERROR)
-        return self.meeting_adapter_impl.get_participants(model_to_dict(meeting))
+        meeting_participants = self.meeting_participants_dao.get(meeting_id)
+        if meeting_participants:
+            return meeting_participants.participants.split(",")
+        return list()
 
     def get_meeting_platform(self, community):
         """get platform"""

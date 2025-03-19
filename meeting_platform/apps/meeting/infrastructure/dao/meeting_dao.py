@@ -57,3 +57,10 @@ class MeetingDao:
     def get_upload_all_by_community_and_status(cls, community, status, start_date, end_date):
         return cls.dao.objects.filter(is_delete=0, community=community, is_record=True, upload_status=status) \
             .filter(Q(date__gt=start_date) & Q(date__lte=end_date)).all()
+
+    @classmethod
+    def get_meeting_by_date(cls, community, start_date, end_date, end_time):
+        start_and_end_date = Q(date__gt=start_date, date__lt=end_date)
+        today = Q(date=end_date, end__lt=end_time)
+        return cls.dao.objects.filter(is_delete=0, community=community). \
+            filter().filter(start_and_end_date | today).all()

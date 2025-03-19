@@ -15,7 +15,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.forms import model_to_dict
 
-from meeting_platform.utils.common import execute_cmd3, get_temp_dir, rm_dir
+from meeting_platform.utils.common import execute_cmd3
 from meeting_platform.utils.file_stream import write_content
 from meeting.domain.primitive.upload_status import UploadStatus
 from meeting.infrastructure.adapter.bilibili_adapter_impl import BiliAdapterImpl
