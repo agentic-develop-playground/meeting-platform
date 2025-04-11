@@ -33,7 +33,7 @@ class TencentApi(MeetingAdapter):
     update_path = "/v1/meetings/{}"
     delete_path = "/v1/meetings/{}/cancel"
     participants_path = "/v1/meetings/{}/participants?userid={}"
-    record_path = "/v1/corp/records?start_time={}&end_time={}&page_size=20&page={}"
+    record_path = "/v1/records?start_time={}&end_time={}&page_size=20&page={}&operator_id_type=1&operator_id={}&query_record_type=1"
     video_download_path = "/v1/addresses/{}?userid={}"
 
     def __init__(self, community, platform, host_id):
@@ -218,7 +218,7 @@ class TencentApi(MeetingAdapter):
         page = 1
         records = []
         while True:
-            uri = self.record_path.format(start_time, end_time, page)
+            uri = self.record_path.format(start_time, end_time, page, self.host_id)
             signature, headers = self._get_signature('GET', uri, "")
             r = requests.get(self._get_url(uri), headers=headers, timeout=self.time_out)
             if r.status_code != 200:
@@ -264,11 +264,11 @@ class TencentApi(MeetingAdapter):
             if not match_record:
                 match_record['record_file_id'] = record_file.get('record_file_id')
                 match_record['record_size'] = record_file.get('record_size')
-                match_record['userid'] = record.get('userid')
+                match_record['userid'] = record.get('host_user_id')
             elif record_file.get('record_size') > match_record.get('record_size'):
                 match_record['record_file_id'] = record_file.get('record_file_id')
                 match_record['record_size'] = record_file.get('record_size')
-                match_record['userid'] = record.get('userid')
+                match_record['userid'] = record.get('host_user_id')
         if not match_record:
             logger.error('[TencentApi/_filter_records] {}/{}: Find no recordings about Tencent meeting'.
                          format(self.community, mid))
