@@ -30,10 +30,15 @@ class EmailAdapter:
         self.community = community
         smtp_info = settings.COMMUNITY_SMTP.get(community)
         if smtp_info is None:
-            logger.info("get empty smtp config from {}".format(smtp_info))
+            logger.info("get empty smtp config from {}".format(community))
             self.email_adapter = None
         else:
             self.smtp_message_from = smtp_info["SMTP_MESSAGE_FROM"]
+            if not smtp_info.get("SMTP_SERVER_HOST") or not smtp_info.get("SMTP_SERVER_PORT"):
+                logger.info("get empty SMTP_SERVER_HOST or SMTP_SERVER_PORT about smtp config from {}".
+                            format(community))
+                self.email_adapter = None
+                return
             self.email_adapter = EmailClient(smtp_info["SMTP_SERVER_HOST"], smtp_info["SMTP_SERVER_PORT"],
                                              smtp_info["SMTP_SERVER_USER"], smtp_info["SMTP_SERVER_PASS"])
 

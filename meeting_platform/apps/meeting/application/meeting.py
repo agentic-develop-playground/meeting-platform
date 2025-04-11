@@ -12,6 +12,7 @@ import traceback
 from django.conf import settings
 from django.utils import timezone
 from django.forms import model_to_dict
+from django.db.models import Q
 
 from meeting_platform.utils.common import start_thread, get_cur_date
 from meeting_platform.utils.operation_log import set_log_thread_local, log_key
@@ -19,6 +20,7 @@ from meeting_platform.utils.ret_api import MyValidationError
 from meeting_platform.utils.ret_code import RetCode
 from meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl import MeetingAdapterImpl
 from meeting.infrastructure.dao import meeting_dao, meeting_participants_dao
+from meeting.domain.primitive.time_range import TimeRange
 from meeting.infrastructure.adapter.message_adapter_impl.email_adapter_impl import CreateMessageEmailAdapterImpl, \
     DeleteMessageEmailAdapterImpl, UpdateMessageEmailAdapterImpl
 from meeting.infrastructure.adapter.message_adapter_impl.kafka_adapter_impl import CreateMessageKafKaAdapterImpl, \
@@ -60,7 +62,8 @@ class MeetingApp:
             raise MyValidationError(RetCode.STATUS_MEETING_DATE_CONFLICT)
         return available_host_id
 
-    def _is_in_prepare_meeting_duration_before_meeting(self, meeting):
+    @staticmethod
+    def _is_in_prepare_meeting_duration_before_meeting(meeting):
         start_date_str = "{} {}".format(meeting["date"], meeting["start"])
         start_date = datetime.datetime.strptime(start_date_str, "%Y-%m-%d %H:%M")
         if int((start_date - get_cur_date()).total_seconds()) < 0:
@@ -68,7 +71,8 @@ class MeetingApp:
         if int((start_date - get_cur_date()).total_seconds()) < 60 * 60:
             raise MyValidationError(RetCode.STATUS_MEETING_CANNOT_BE_OPERATE)
 
-    def _send_message(self, meeting, message_handler):
+    @staticmethod
+    def _send_message(meeting, message_handler):
         """send the message"""
         for handler in message_handler:
             try:
@@ -82,10 +86,21 @@ class MeetingApp:
         if meeting_counts >= settings.MEETING_CREATE_COUNT:
             raise MyValidationError(RetCode.STATUS_MEETING_CREATE_COUNT_LIMIT)
 
+    def _check_recurring_meetings(self, meeting):
+        m_count = self.meeting_dao.get_repeat_meeting_by_community_sponsor_date_start_counts(meeting["community"],
+                                                                                             meeting["group_name"],
+                                                                                             meeting["sponsor"],
+                                                                                             meeting["date"],
+                                                                                             meeting["start"])
+        if m_count != 0:
+            raise MyValidationError(RetCode.STATUS_MEETING_REPEAT_FAILED)
+
     def create(self, meeting):
         """create meeting"""
         # check the meeting limit
         self._calc_meeting_count(meeting)
+        # check the recurring meetings
+        self._check_recurring_meetings(meeting)
         # check meeting-conflict
         available_host_id = self._get_and_check_conflict_meetings_by_date(meeting)
         meeting["host_id"] = secrets.choice(available_host_id)
@@ -164,7 +179,8 @@ class MeetingApp:
             return meeting_participants.participants.split(",")
         return list()
 
-    def get_meeting_platform(self, community):
+    @staticmethod
+    def get_meeting_platform(community):
         """get platform"""
         if community not in settings.COMMUNITY_HOST.keys():
             raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
@@ -186,3 +202,18 @@ class MeetingApp:
         queryset = queryset.filter(date__gte=start_date, date__lte=end_date)
         queryset_data = queryset.distinct().order_by('-date', 'id').values_list("date", flat=True)
         return [date for date in queryset_data]
+
+    @staticmethod
+    def get_time_range_meeting(queryset, time_range):
+        time_range_domain = TimeRange.check_value(time_range)
+        cur_date = datetime.datetime.now()
+        queryset_data = {
+            TimeRange.WEEKLY.value: queryset.filter((Q(date__gte=str(cur_date - datetime.timedelta(days=7))[:10]) &
+                                                     Q(date__lte=str(cur_date + datetime.timedelta(days=7))[:10]))),
+            TimeRange.RECENTLY.value: queryset.filter(date__gte=cur_date.strftime('%Y-%m-%d')),
+            TimeRange.DAILY.value: queryset.filter(date=str(cur_date)[:10]),
+            TimeRange.AFTER_WEEKLY.value: queryset.filter((Q(date__gte=cur_date.strftime('%Y-%m-%d')) &
+                                                           Q(date__lte=str(cur_date + datetime.timedelta(days=7))[:10]))
+                                                          ),
+        }
+        return queryset_data.get(time_range_domain.value)

@@ -24,6 +24,11 @@ class MeetingDao:
         return cls.dao.objects.filter(community=community, sponsor=sponsor, create_time__date=date).count()
 
     @classmethod
+    def get_repeat_meeting_by_community_sponsor_date_start_counts(cls, community, group_name, sponsor, date, start):
+        return cls.dao.objects.filter(community=community, group_name=group_name, sponsor=sponsor,
+                                      date=date, start=start, is_delete=False).count()
+
+    @classmethod
     def get_queryset(cls):
         return cls.dao.objects.all()
 

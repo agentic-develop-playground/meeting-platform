@@ -60,9 +60,9 @@ class MyUpdateAPIView(mixins.UpdateModelMixin,
         return self.update(request, *args, **kwargs)
 
 
-class PingView(EmptyAPIView, RetrieveAPIView):
+class PingView(GenericAPIView):
     """get the heartbeat"""
 
-    def retrieve(self, request, *args, **kwargs):
+    def get(self, request, *args, **kwargs):
         """get the status of service"""
         return ret_json(msg='the status is ok')

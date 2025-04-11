@@ -60,6 +60,20 @@ class MeetingView(MySerializerParse, MyListModelMixin, ListAPIView, CreateAPIVie
         community = self.request.query_params.get("community")
         if community is not None:
             self.queryset = self.queryset.filter(community=community)
+        meeting_ids_str = self.request.query_params.get("meeting_ids")
+        if meeting_ids_str is not None:
+            meeting_ids = meeting_ids_str.split(",")
+            self.queryset = self.queryset.filter(id__in=meeting_ids)
+        topic = self.request.query_params.get("topic")
+        if topic is not None:
+            self.queryset = self.queryset.filter(topic__icontains=topic)
+        group_name = self.request.query_params.get("group_name")
+        if group_name is not None:
+            self.queryset = self.queryset.filter(group_name__icontains=group_name)
+        time_range = self.request.query_params.get("time_range")
+        if time_range is not None:
+            # 判断时间？weekly, recently, daily,
+            self.queryset = self.app_class.get_time_range_meeting(self.queryset, time_range)
         order_by = self.request.query_params.get("order_by")
         if order_by and order_by not in self.order_by:
             raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)

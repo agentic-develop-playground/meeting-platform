@@ -67,6 +67,7 @@ class RetCode(RetCodeBase):
     STATUS_MEETING_CREATE_COUNT_LIMIT = STATUS_FACILITY_MEETING + 14
     STATUS_MEETING_MODIFY_COUNT_LIMIT = STATUS_FACILITY_MEETING + 15
     STATUS_MEETING_PUT_RUNNING = STATUS_FACILITY_MEETING + 16
+    STATUS_MEETING_REPEAT_FAILED = STATUS_FACILITY_MEETING + 17
 
     EN_OPERATION = {
         # common
@@ -107,6 +108,7 @@ class RetCode(RetCodeBase):
         STATUS_MEETING_CREATE_COUNT_LIMIT: "The meeting created today has exceeded the limit. Please try again tomorrow",
         STATUS_MEETING_MODIFY_COUNT_LIMIT: "Modifying the meeting has exceeded the limit",
         STATUS_MEETING_PUT_RUNNING: "The meeting is in progress and cannot be operated",
+        STATUS_MEETING_REPEAT_FAILED: "The meeting is repeated and the operation failed.",
 
     }
 
@@ -148,5 +150,6 @@ class RetCode(RetCodeBase):
         STATUS_MEETING_CREATE_COUNT_LIMIT: "今日创建会议已超限制，请明日再重试",
         STATUS_MEETING_MODIFY_COUNT_LIMIT: "修改会议已超限制",
         STATUS_MEETING_PUT_RUNNING: "会议正在进行中，无法操作此会议",
+        STATUS_MEETING_REPEAT_FAILED: "你创建的会议已经存在，请勿重复创建，操作失败",
 
     }
