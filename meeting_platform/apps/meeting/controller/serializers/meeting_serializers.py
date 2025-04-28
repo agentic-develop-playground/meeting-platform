@@ -21,12 +21,14 @@ from meeting_platform.utils.ret_code import RetCode
 
 from meeting.models import Meeting
 
+from meeting_platform.utils.client.audit_client import AuditClient
+
 logger = logging.getLogger("log")
 
 
 class MeetingSerializer(ModelSerializer):
     """MeetingSerializer for get a meeting and create meeting"""
-
+    __audit_client = AuditClient()
     duration = serializers.SerializerMethodField()
     duration_time = serializers.SerializerMethodField()
 
@@ -62,16 +64,23 @@ class MeetingSerializer(ModelSerializer):
             'duration_time': {'read_only': True},
         }
 
+    def _check_content_by_audit(self, value):
+        if value:
+            if not self.__audit_client.check_content_ok(value):
+                raise MyValidationError(RetCode.STATUS_INVALID_CONTENT_FAILED)
+
     def validate_sponsor(self, value):
         """check length of 64"""
         check_field(value, 64)
         check_invalid_content(value)
+        self._check_content_by_audit(value)
         return value
 
     def validate_group_name(self, value):
         """check length of 64"""
         check_field(value, 64)
         check_invalid_content(value)
+        self._check_content_by_audit(value)
         return value
 
     def validate_community(self, value):
@@ -85,6 +94,7 @@ class MeetingSerializer(ModelSerializer):
         """check length of 128，not include \r\n url xss"""
         check_field(value, 128)
         check_invalid_content(value)
+        self._check_content_by_audit(value)
         return value
 
     def validate_platform(self, value):
@@ -129,6 +139,7 @@ class MeetingSerializer(ModelSerializer):
         if value:
             check_field(value, 4096)
             check_invalid_content(value, check_crlf=False)
+            self._check_content_by_audit(value)
             return value
 
     def validate_email_list(self, value):
@@ -179,6 +190,7 @@ class SingleMeetingSerializer(ModelSerializer):
     duration = serializers.SerializerMethodField()
     duration_time = serializers.SerializerMethodField()
     email_list = serializers.SerializerMethodField()
+    __audit_client = AuditClient()
 
     class Meta:
         """Meta Meta"""
@@ -212,10 +224,16 @@ class SingleMeetingSerializer(ModelSerializer):
             'duration_time': {'read_only': True},
         }
 
+    def _check_content_by_audit(self, value):
+        if value:
+            if not self.__audit_client.check_content_ok(value):
+                raise MyValidationError(RetCode.STATUS_INVALID_CONTENT_FAILED)
+
     def validate_topic(self, value):
         """check length of 128，not include \r\n url xss"""
         check_field(value, 128)
         check_invalid_content(value)
+        self._check_content_by_audit(value)
         return value
 
     def validate_date(self, value):
@@ -238,6 +256,7 @@ class SingleMeetingSerializer(ModelSerializer):
         if value:
             check_field(value, 4096)
             check_invalid_content(value, check_crlf=False)
+            self._check_content_by_audit(value)
             return value
 
     def validate_etherpad(self, value):

@@ -45,6 +45,7 @@ class RetCode(RetCodeBase):
     STATUS_START_VALID_XSS = -14
     STATUS_START_VALID_CRLF = -15
     STATUS_AUTH_FAILED = -16
+    STATUS_INVALID_CONTENT_FAILED = -17
 
     STATUS_FACILITY_BIT_MASK = 16
     STATUS_FACILITY_MEETING = 1 << STATUS_FACILITY_BIT_MASK
@@ -88,6 +89,8 @@ class RetCode(RetCodeBase):
         STATUS_START_VALID_XSS: "Please do not enter XSS tags",
         STATUS_START_VALID_CRLF: "Please do not enter \r\n tags",
         STATUS_AUTH_FAILED: "Auth failed",
+        STATUS_INVALID_CONTENT_FAILED: "Check the content you entered. It is not compliant. "
+                                       "Please re-enter.",
 
         # meetings
         STATUS_MEETING_EMAIL_LIST_OVER_LIMIT: "The length of email_list is gt 600",
@@ -131,6 +134,7 @@ class RetCode(RetCodeBase):
         STATUS_START_VALID_XSS: "请勿输入XSS标签等内容",
         STATUS_START_VALID_CRLF: "请勿输入\r\n等内容",
         STATUS_AUTH_FAILED: "认证失败",
+        STATUS_INVALID_CONTENT_FAILED: "检查你输入的内容不合规，请重新输入",
 
         # meetings
         STATUS_MEETING_EMAIL_LIST_OVER_LIMIT: "邮件地址长度超限",
