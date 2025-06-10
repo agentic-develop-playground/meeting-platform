@@ -20,6 +20,7 @@ class BiliUploadAdapterImpl(UploadAdapter):
 
     @func_retry()
     def upload(self, video_path, cover_path):
+        logger.info("start to upload the bili...")
         meeting_info = {
             'tag': '{}, SIG meeting, recording'.format(self.meeting["community"]),
             'title': '{}（{}）'.format(self.meeting["topic"], self.meeting["date"]),

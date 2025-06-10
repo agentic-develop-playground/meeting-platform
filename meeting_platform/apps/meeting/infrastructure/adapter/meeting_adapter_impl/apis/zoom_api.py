@@ -212,9 +212,34 @@ class ZoomApi(MeetingAdapter):
         sorted_data = sorted(records, key=lambda x: x['total_size'], reverse=True)
         return sorted_data[0]
 
+    def get_records_by_duration_day(self, duration_day):
+        uri = self.records_path.format(self.host_id)
+        headers = {
+            'authorization': 'Bearer {}'.format(self._get_oauth_token())
+        }
+        params = {
+            'from': (datetime.datetime.now() - datetime.timedelta(days=duration_day)).strftime("%Y-%m-%d"),
+            'page_size': 50
+        }
+        response = requests.get(self._get_url(uri), headers=headers, params=params, timeout=self.time_out)
+        if response.status_code != 200:
+            logger.error('[ZoomApi/get_records] {}/{} get recordings failed: {} {}'.
+                         format(self.community, self.platform, response.status_code, response.content.decode("utf-8")))
+            return
+        ret_json = response.json()
+        if "meetings" not in ret_json:
+            logger.error('[ZoomApi/get_records] {}/{} get recordings format failed: {} {}'.
+                         format(self.community, self.platform, response.status_code, ret_json.get("message")))
+            return
+        return ret_json['meetings']
+
     def _get_download_url(self, action, recordings):
         """get download url"""
-        mid = action.mid
+        logger.info("start to filter download url....")
+        if action:
+            mid = action.mid
+        else:
+            mid = ""
         recordings_list = list(
             filter(lambda x: x if x['file_extension'] == 'MP4' else None, recordings['recording_files']))
         if len(recordings_list) == 0:
@@ -233,8 +258,9 @@ class ZoomApi(MeetingAdapter):
 
     def _download_video(self, action, download_url):
         """download video"""
+        logger.info("start to download url....")
         mid = action.mid
-        video_path = get_video_path(mid, self.community)
+        video_path = get_video_path(str(mid), self.community)
         r = requests.get(url=download_url, allow_redirects=False, timeout=self.time_out)
         url = r.headers['location']
         filename = download_big_file(url, video_path)
@@ -253,3 +279,21 @@ class ZoomApi(MeetingAdapter):
             logger.error("[ZoomApi/get_video] {}/{}: get empty download_url.".format(self.community, action.mid))
             return
         return self._download_video(action, download_url)
+
+    def get_video_by_day(self, day):
+        records = self.get_records_by_duration_day(day)
+        if not records:
+            logger.error("[ZoomApi/get_video_by_day] {}/{}: get empty records.".format(self.community, self.host_id))
+            return
+        path_dict = dict()
+        for record in records:
+            logger.info("start to get the url for {}".format(record))
+            download_url = self._get_download_url(None, record)
+            if not download_url:
+                logger.error("[ZoomApi/get_video] {}: get empty download_url.".format(self.community))
+                continue
+            action = ZoomGetVideo(mid=record["id"])
+            filename = self._download_video(action, download_url)
+            path_dict[filename] = record
+            break
+        return path_dict

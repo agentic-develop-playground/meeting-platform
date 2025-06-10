@@ -74,3 +74,9 @@ python3 manage.py runserver --noreload
 python3 manage.py handle_recordings
 ~~~
 
+2.scan the third meeting and upload to bilibili
+
+~~~bash
+python3 manage.py scan_upload_meetings
+~~~
+
