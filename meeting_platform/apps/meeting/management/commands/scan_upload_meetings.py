@@ -10,6 +10,7 @@
 """
 
 import os
+import time
 import logging
 import shutil
 import traceback
@@ -115,6 +116,8 @@ class ScanUploadRecording:
             path = trimmer_video(path, meeting_data["id"])
             impl = self.upload_bili_adapter_impl(meeting)
             vid = impl.upload(path, cover_path, return_replay_url=False)
+            # todo sleep 1 minutes for get the vid info
+            time.sleep(60)
             impl.add_video(vid)
             self.meeting_cache_dao.create(meeting_id=meeting_data["uuid"], vid=vid)
 
