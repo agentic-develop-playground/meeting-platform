@@ -36,3 +36,7 @@ class BiliUploadAdapterImpl(UploadAdapter):
         if return_replay_url:
             return self.bili_adapter_impl.get_replay_url(b_vid)
         return b_vid
+
+    @func_retry()
+    def add_video(self, vid):
+        return self.bili_adapter_impl.add_video(vid)

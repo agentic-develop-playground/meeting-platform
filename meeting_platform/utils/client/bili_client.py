@@ -6,16 +6,18 @@
 # @Software: PyCharm
 from django.conf import settings
 
-from bilibili_api import video_uploader, sync, Credential
+from bilibili_api import video_uploader, sync, Credential, video
 from bilibili_api.user import User
+from bilibili_api.channel_series import add_aids_to_series
 
 
 class BiliClient(object):
-    def __init__(self, bili_uid, bili_jct, bili_sess_data):
+    def __init__(self, bili_uid, bili_jct, bili_sess_data, series_id=None):
         """init bilibili credential"""
         self.credential = Credential(bili_jct=bili_jct, sessdata=bili_sess_data)
         self.bili_uid = bili_uid
         self.bili_api_prefix = settings.API_PREFIX["BILIBILI_API_PREFIX"]
+        self.series_id = series_id
 
     def upload(self, meeting_info, video_path, thumbnail_path):
         tag = meeting_info.get('tag')
@@ -57,6 +59,13 @@ class BiliClient(object):
                     all_vid.append(b_vid)
             pn += 1
         return all_vid
+
+    def add_video(self, vid):
+        if self.series_id:
+            v = video.Video(bvid=vid)
+            video_info = sync(v.get_info())
+            aid = video_info["aid"]
+            sync(add_aids_to_series(self.series_id, [aid], self.credential))
 
     def get_replay_url(self, b_vid):
         return self.bili_api_prefix + b_vid

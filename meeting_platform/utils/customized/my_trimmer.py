@@ -8,19 +8,18 @@ import json
 import tempfile
 from meeting_platform.utils.common import execute_cmd3
 
-
 logger = logging.getLogger('log')
 
 
 class AudioTrimmer:
     """音频/视频静音剪切工具类，提供检测和剪切功能"""
+
     @staticmethod
     def check_ffmpeg():
         """验证ffmpeg是否存在"""
         if path := shutil.which("ffmpeg"):
             return path
         raise EnvironmentError("未找到ffmpeg，请先安装并添加到PATH")
-
 
     @staticmethod
     def check_ffprobe():
@@ -50,7 +49,6 @@ class AudioTrimmer:
         self.noise_threshold = noise_threshold
         self.duration_threshold = duration_threshold
 
-
     def get_media_duration(self):
         """获取媒体文件的总时长（秒）"""
         cmd = [
@@ -70,7 +68,6 @@ class AudioTrimmer:
 
         data = json.loads(output)
         return float(data["format"]["duration"])
-        
 
     def detect_silence(self):
         """改进版静音检测方法，支持完整日志解析"""
@@ -274,10 +271,12 @@ class AudioTrimmer:
         logger.info(f"处理完成，输出文件：{output_file}")
         return True
 
+
 def auto_trimmer(input_file, output_file):
     """自动剪辑的入口，输入是本地一个原始视频路径，输出是一个剪辑后的视频路径"""
     trimmer = AudioTrimmer(input_file)
     trimmer.fast_trim(output_file)
+
 
 def trimmer_video(video_path, mid):
     trimmer_path = video_path.replace('.mp4', '_trimmer.mp4')

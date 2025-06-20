@@ -27,6 +27,7 @@ from meeting.infrastructure.adapter.upload_adapter_impl.obs_upload_adapter_impl 
 from meeting.infrastructure.dao.meeting_cache_dao import MeetingCacheDao
 from meeting_platform.utils.common import execute_cmd3
 from meeting_platform.utils.file_stream import write_content
+from meeting_platform.utils.customized.my_trimmer import trimmer_video
 
 logger = logging.getLogger("log")
 
@@ -111,7 +112,10 @@ class ScanUploadRecording:
                 "group_name": "VLLM"
             }
             cover_path = self._get_video_cover_path(path, meeting)
-            vid = self.upload_bili_adapter_impl(meeting).upload(path, cover_path, return_replay_url=False)
+            path = trimmer_video(path, meeting_data["id"])
+            impl = self.upload_bili_adapter_impl(meeting)
+            vid = impl.upload(path, cover_path, return_replay_url=False)
+            impl.add_video(vid)
             self.meeting_cache_dao.create(meeting_id=meeting_data["uuid"], vid=vid)
 
 
