@@ -72,3 +72,20 @@ class MeetingParticipants(models.Model):
 
     def __str__(self):
         return "{}".format(self.meeting)
+
+
+class MeetingCache(models.Model):
+    """use for the cronjob scan_upload_meetings"""
+    meeting_id = models.CharField(verbose_name='会议id', max_length=32)
+    vid = models.CharField(verbose_name='B站回放会议id', max_length=128, null=True, blank=True)
+    create_time = models.DateTimeField(verbose_name='创建时间', auto_now_add=True, null=True, blank=True)
+
+    objects = models.Manager()
+
+    class Meta:
+        db_table = "meetings_cache"
+        verbose_name = "meetings_cache"
+        verbose_name_plural = verbose_name
+
+    def __str__(self):
+        return "{}/{}".format(self.meeting_id, self.vid)

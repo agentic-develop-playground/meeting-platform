@@ -24,12 +24,13 @@ from meeting.infrastructure.adapter.meeting_adapter_impl.apis.zoom_api import Zo
 from meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl import MeetingAdapterImpl
 from meeting.infrastructure.adapter.upload_adapter_impl.bili_upload_adapter_impl import BiliUploadAdapterImpl
 from meeting.infrastructure.adapter.upload_adapter_impl.obs_upload_adapter_impl import ObsUploadAdapterImpl
+from meeting.infrastructure.dao.meeting_cache_dao import MeetingCacheDao
 from meeting_platform.utils.common import execute_cmd3
 from meeting_platform.utils.file_stream import write_content
 
 logger = logging.getLogger("log")
 
-_QUERY_DAY = 20
+_QUERY_DAY = 30
 
 
 class ScanUploadRecording:
@@ -37,6 +38,7 @@ class ScanUploadRecording:
     bili_adapter_impl = BiliAdapterImpl
     upload_obs_adapter_impl = ObsUploadAdapterImpl
     upload_bili_adapter_impl = BiliUploadAdapterImpl
+    meeting_cache_dao = MeetingCacheDao()
 
     def __init__(self, community):
         self.community = community
@@ -89,8 +91,14 @@ class ScanUploadRecording:
     def scan_video(self):
         host_ids = settings.COMMUNITY_HOST[self.community][ZoomApi.meeting_type.upper()]
         zoom_api = ZoomApi(self.community, ZoomApi.meeting_type.upper(), host_ids[0]["HOST"])
-        path_dict = zoom_api.get_video_by_day(_QUERY_DAY)
-        return path_dict
+        video_infos = zoom_api.get_video_by_day(_QUERY_DAY)
+        new_list = list()
+        for video_info in video_infos:
+            if not self.meeting_cache_dao.get_by_meeting_id(video_info["uuid"]):
+                logger.info("find the need upload the meeting:{}".format(video_info["uuid"]))
+                new_list.append(video_info)
+        logger.info("find the new list:{}".format(len(new_list)))
+        return zoom_api.get_video_url_by_records(records=new_list)
 
     def upload_bili(self, path_dict):
         for path, meeting_data in path_dict.items():
@@ -103,7 +111,8 @@ class ScanUploadRecording:
                 "group_name": "VLLM"
             }
             cover_path = self._get_video_cover_path(path, meeting)
-            self.upload_bili_adapter_impl(meeting).upload(path, cover_path)
+            vid = self.upload_bili_adapter_impl(meeting).upload(path, cover_path, return_replay_url=False)
+            self.meeting_cache_dao.create(meeting_id=meeting_data["uuid"], vid=vid)
 
 
 def work_flow(handle_recording: ScanUploadRecording):

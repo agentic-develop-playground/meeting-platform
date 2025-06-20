@@ -19,7 +19,7 @@ class BiliUploadAdapterImpl(UploadAdapter):
         self.bili_adapter_impl = BiliAdapterImpl(meeting["community"])
 
     @func_retry()
-    def upload(self, video_path, cover_path):
+    def upload(self, video_path, cover_path, return_replay_url=True):
         logger.info("start to upload the bili...")
         meeting_info = {
             'tag': '{}, SIG meeting, recording'.format(self.meeting["community"]),
@@ -31,7 +31,8 @@ class BiliUploadAdapterImpl(UploadAdapter):
             logger.error('[BiliUploadAdapterImpl/upload] Unexpected upload result to bili: {}'.format(res))
             return
         b_vid = str(res.get('bvid'))
-        replay_url = self.bili_adapter_impl.get_replay_url(b_vid)
         logger.info('[BiliUploadAdapterImpl/upload]meeting {}: upload to bili successfully, b_vid is {}'.
                     format(self.meeting["mid"], b_vid))
-        return replay_url
+        if return_replay_url:
+            return self.bili_adapter_impl.get_replay_url(b_vid)
+        return b_vid

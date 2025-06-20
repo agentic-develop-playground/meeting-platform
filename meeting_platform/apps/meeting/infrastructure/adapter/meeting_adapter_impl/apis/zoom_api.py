@@ -284,7 +284,10 @@ class ZoomApi(MeetingAdapter):
         records = self.get_records_by_duration_day(day)
         if not records:
             logger.error("[ZoomApi/get_video_by_day] {}/{}: get empty records.".format(self.community, self.host_id))
-            return
+            return list()
+        return records
+
+    def get_video_url_by_records(self, records):
         path_dict = dict()
         for record in records:
             logger.info("start to get the url for {}".format(record))
