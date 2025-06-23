@@ -47,7 +47,7 @@ class ScanUploadRecording:
 
     # noinspection LongLine
     @staticmethod
-    def _cover_content(topic, group_name, date):
+    def _cover_content(topic, date):
         """get the cover html template"""
         content = """
         <!DOCTYPE html>
@@ -58,13 +58,12 @@ class ScanUploadRecording:
         </head>
         <body>
             <div style="display: inline-block; height: 688px; width: 1024px; text-align: center; background-image: url('cover.png')">
-                <p style="font-size: 80px;margin-top: 150px; color: white"><b>{0}</b></p>
-                <p style="font-size: 60px; margin: 0; color: white">SIG: {1}</p>
-                <p style="font-size: 40px; margin: 0; color: white">Time: {2}</p>
+                <p style="font-size: 80px;margin-top: 200px; color: white"><b>{0}</b></p>
+                <p style="font-size: 40px; margin: 0; color: white">Time: {1}</p>
             </div>
         </body>
         </html>
-        """.format(topic, group_name, date)
+        """.format(topic, date)
         return content
 
     def _get_video_cover_path(self, video_path, meeting):
@@ -74,11 +73,10 @@ class ScanUploadRecording:
         image_path = video_path.replace('.mp4', '.png')
         mid = meeting["mid"]
         topic = meeting["topic"]
-        group_name = meeting["group_name"]
         date = meeting["date"]
         community = meeting["community"]
         logger.info("[ScanUploadRecording/_generate_cover] {}/{}: start to generate cover".format(self.community, mid))
-        content = self._cover_content(topic, group_name, date)
+        content = self._cover_content(topic, date)
         # write content to html
         write_content(html_path, content, model="w")
         if not os.path.exists(os.path.join(os.path.dirname(video_path), 'cover.png')):
@@ -116,7 +114,6 @@ class ScanUploadRecording:
             path = trimmer_video(path, meeting_data["id"])
             impl = self.upload_bili_adapter_impl(meeting)
             vid = impl.upload(path, cover_path, return_replay_url=False)
-            # todo sleep 1 minutes for get the vid info
             time.sleep(60)
             impl.add_video(vid)
             self.meeting_cache_dao.create(meeting_id=meeting_data["uuid"], vid=vid)
