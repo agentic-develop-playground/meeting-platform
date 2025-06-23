@@ -48,7 +48,7 @@ class BiliClient(object):
         all_vid = []
         pn = 1
         while True:
-            res = sync(user.get_videos(pn=pn))
+            res = sync(user.get_videos(pn=pn, ps=10))
             if len(res.get('list').get('vlist')) == 0:
                 break
             for video in res['list']['vlist']:

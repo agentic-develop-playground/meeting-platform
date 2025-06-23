@@ -114,9 +114,14 @@ class ScanUploadRecording:
             path = trimmer_video(path, meeting_data["id"])
             impl = self.upload_bili_adapter_impl(meeting)
             vid = impl.upload(path, cover_path, return_replay_url=False)
-            time.sleep(60)
-            impl.add_video(vid)
             self.meeting_cache_dao.create(meeting_id=meeting_data["uuid"], vid=vid)
+            while True:
+                all_videos = impl.bili_adapter_impl.search_all_videos()
+                if vid in all_videos:
+                    break
+                logger.info("video:{} not passed".format(vid))
+                time.sleep(180)
+            impl.add_video(vid)
 
 
 def work_flow(handle_recording: ScanUploadRecording):
