@@ -30,7 +30,8 @@ RUN chmod -R 550 /home/meetingplatform/meeting-platform/
 RUN chmod 550 /home/meetingplatform/meeting-platform/manage.py
 RUN chmod 550 /home/meetingplatform/meeting-platform/docker-entrypoint.sh
 RUN chmod 550 /usr/share/fonts/simsun.ttc
-RUN mkdir -p /home/meetingplatform/meeting-platform/deploy/static && chmod -R 750 /home/meetingplatform/meeting-platform/deploy
+RUN chmod -R 750 /home/meetingplatform/meeting-platform/deploy
+RUN rm -rf /home/meetingplatform/meeting-platform/.git
 
 RUN ln -s /usr/bin/python3 /usr/bin/python
 RUN yum remove -y gcc python3-pip procps-ng gdb-gdbserver findutils passwd mirror cpp
@@ -65,8 +66,7 @@ RUN rm -rf /usr/share/gdb  \
 RUN echo "umask 027" >> /home/meetingplatform/.bashrc
 RUN echo 'set +o history' >> /home/meetingplatform/.bashrc
 RUN chmod 640 /home/meetingplatform/.bashrc && chmod 640 /home/meetingplatform/.bash_logout && chmod 640 /home/meetingplatform/.bash_profile
-RUN chown ${user}:${group} /home/meetingplatform/meeting-platform/deploy/production/uwsgi.ini && chmod 550 /home/meetingplatform/meeting-platform/deploy/production/uwsgi.ini
-RUN rm -rf /home/meetingplatform/meeting-platform/deploy/static/
+RUN chown ${user}:${group} /home/meetingplatform/meeting-platform/deploy/production/gunicorn.conf.py
 
 # 5.Run server
 WORKDIR /home/meetingplatform/meeting-platform
@@ -74,5 +74,5 @@ ENV LANG=en_US.UTF-8
 USER meetingplatform
 
 ENTRYPOINT ["/home/meetingplatform/meeting-platform/docker-entrypoint.sh"]
-CMD ["uwsgi", "--ini", "/home/meetingplatform/meeting-platform/deploy/production/uwsgi.ini"]
+CMD ["gunicorn", "meeting_platform.wsgi:application"]
 EXPOSE 8080

@@ -4,7 +4,7 @@ django-filter==23.5
 djangorestframework==3.15.2
 PyMySQL==1.1.1
 pyyaml==6.0.2
-uwsgi==2.0.22
+gunicorn==23.0.0
 drf-yasg==1.21.7
 requests==2.32.4
 icalendar==5.0.7
