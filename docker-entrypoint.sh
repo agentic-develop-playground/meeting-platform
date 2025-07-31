@@ -31,7 +31,7 @@ function modify_ip() {
   chmod 550 /home/meetingplatform/meeting-platform/deploy/production/gunicorn.conf.py
   chmod 550 /home/meetingplatform/meeting-platform/
   chmod 550 /home/meetingplatform/meeting-platform/gunicorn.conf.py
-  echo "set new ip in gunicorn: $CURRENT_IP"
+  echo "modify new ip in gunicorn success"
 }
 
 modify_ip
