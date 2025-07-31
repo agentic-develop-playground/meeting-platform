@@ -26,6 +26,11 @@ if not CONF["DEBUG"]:
         MYSQL_TLS_PEM_CONTENT = f
 else:
     MYSQL_TLS_PEM_CONTENT = None
+if not CONF.get("KAFKA_CRT_PATH"):
+    with open(CONF["KAFKA_CRT_PATH"], "r") as f:
+        KAFKA_CRT_CONTENT = f.read()
+else:
+    KAFKA_CRT_CONTENT = None
 
 # Delete the file after reading the configuration
 _run_condition = sys.argv[0] == 'uwsgi' or (len(sys.argv) >= 2 and sys.argv[1] == "runserver")
