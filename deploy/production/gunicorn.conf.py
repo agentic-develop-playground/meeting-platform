@@ -28,3 +28,18 @@ keepalive = 5
 timeout = 30
 max_requests = 1000
 max_requests_jitter = 50
+
+
+# 服务启动成功回调函数
+def when_ready(server):
+    import os
+    from django.conf import settings
+    for config_path in settings.ALL_CONFIG_PATH_LIST:
+        if not config_path:
+            continue
+        if os.path.exists(config_path):
+            os.remove(config_path)
+            print("delete config {} success".format(config_path))
+        else:
+            print("config {} is not exist".format(config_path))
+    print("start to run server successfully...")
