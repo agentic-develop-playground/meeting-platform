@@ -33,7 +33,7 @@ else:
     KAFKA_CRT_CONTENT = None
 
 # Delete the file after reading the configuration
-_run_condition = sys.argv[0] == 'uwsgi' or (len(sys.argv) >= 2 and sys.argv[1] == "runserver")
+_run_condition = sys.argv[0] == 'gunicorn' or (len(sys.argv) >= 2 and sys.argv[1] == "runserver")
 if CONF["IS_DELETE_CONFIG"] and _run_condition:
     ALL_CONFIG_PATH_LIST = [CONFIG_PATH, VAULT_PATH, CONF["MYSQL_TLS_PEM_PATH"],
                             CONF["UWSGI_TLS_CRT_PATH"], CONF["UWSGI_TLS_KEY_PATH"], CONF.get("KAFKA_CRT_PATH")]
