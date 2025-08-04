@@ -2,6 +2,7 @@
 bind = "{{ip}}:8080"
 workers = 8
 threads = 4
+worker_class = "custom_worker.SSLCachedWorker"
 certfile = "/vault/secrets/server.crt"
 keyfile = "/vault/secrets/server.key"
 
