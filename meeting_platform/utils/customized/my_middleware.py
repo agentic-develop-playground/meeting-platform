@@ -10,8 +10,9 @@ from django.utils.deprecation import MiddlewareMixin
 logger = logging.getLogger("log")
 
 
+# noinspection PyMethodMayBeStatic
 class MyMiddleware(MiddlewareMixin):
-    def process_response(self, _, response):
+    def process_response(self, request, response):
         if isinstance(response, HttpResponseBase):
             response["X-XSS-Protection"] = "1; mode=block"
             response["X-Frame-Options"] = "DENY"
@@ -22,4 +23,11 @@ class MyMiddleware(MiddlewareMixin):
             response["Pragma"] = "no-cache"
             response["Expires"] = 0
             response["Referrer-Policy"] = "no-referrer"
+
+        logger.info("[{}] {} {} => {}".format(
+            str(request.META.get("REMOTE_ADDR")),
+            request.method,
+            str(request.META.get("RAW_URI")),
+            response.status_code
+        ))
         return response

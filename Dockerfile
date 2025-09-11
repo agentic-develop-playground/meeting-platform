@@ -16,8 +16,6 @@ RUN useradd -u ${uid} -g ${group} -d /home/meetingplatform/ -s /sbin/nologin -m 
 COPY --chown=${user}:${group} . /home/meetingplatform/meeting-platform/
 RUN mv /home/meetingplatform/meeting-platform/deploy/fonts/simsun.ttc /usr/share/fonts/simsun.ttc
 RUN rm -rf /home/meetingplatform/meeting-platform/Dockerfile
-RUN rm -rf /home/meetingplatform/meeting-platform/deploy/config
-RUN rm -rf /home/meetingplatform/meeting-platform/deploy/fonts
 
 # 3.install
 RUN pip3 install -r /home/meetingplatform/meeting-platform/requirements.txt && rm -rf /home/meetingplatform/meeting-platform/requirements.txt
@@ -32,6 +30,8 @@ RUN chmod 550 /home/meetingplatform/meeting-platform/docker-entrypoint.sh
 RUN chmod 550 /usr/share/fonts/simsun.ttc
 RUN chmod -R 750 /home/meetingplatform/meeting-platform/deploy
 RUN rm -rf /home/meetingplatform/meeting-platform/.git
+RUN rm -rf /home/meetingplatform/meeting-platform/.gitignore
+RUN rm -rf /home/meetingplatform/meeting-platform/deploy/config
 
 RUN ln -s /usr/bin/python3 /usr/bin/python
 RUN yum remove -y gcc python3-pip procps-ng gdb-gdbserver findutils passwd mirror cpp
@@ -71,7 +71,7 @@ RUN chown ${user}:${group} /home/meetingplatform/meeting-platform/deploy/product
 # 5.Run server
 WORKDIR /home/meetingplatform/meeting-platform
 ENV LANG=en_US.UTF-8
-USER meetingplatform
+USER ${uid}:${gid}
 
 ENTRYPOINT ["/home/meetingplatform/meeting-platform/docker-entrypoint.sh"]
 CMD ["gunicorn", "meeting_platform.wsgi:application"]

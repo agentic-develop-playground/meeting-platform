@@ -1,0 +1,80 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# @Time    : 2025/8/15 10:54
+# @Author  : Tom_zc
+# @FileName: core_operators.py
+# @Software: PyCharm
+import datetime
+import calendar
+import logging
+
+from meeting.domain.primitive.cycle_type import CycleType
+
+logger = logging.getLogger("log")
+
+
+def get_cycle_date_by_policy(meeting):
+    """get the cycle date by policy"""
+    meeting_date_list = list()
+    cur_date = datetime.datetime.now()
+    start_date = datetime.datetime.strptime("{} {}".format(meeting["cycle_start_date"], meeting["cycle_start"]),
+                                            "%Y-%m-%d %H:%M")
+    end_date = datetime.datetime.strptime("{} {}".format(meeting["cycle_end_date"], meeting["cycle_end"]),
+                                          "%Y-%m-%d %H:%M")
+    if meeting["cycle_type"] == CycleType.DAY:
+        while start_date <= end_date:
+            if start_date >= cur_date:
+                meeting_date_list.append(
+                    {
+                        "date": start_date.strftime("%Y-%m-%d"),
+                        "start": meeting["cycle_start"],
+                        "end": meeting["cycle_end"]
+                    }
+                )
+            start_date += datetime.timedelta(days=meeting["cycle_interval"])
+    elif meeting["cycle_type"] == CycleType.Week:
+        cycle_interval = meeting["cycle_interval"]
+        for wd in meeting.get("cycle_point") or list():
+            current = start_date + datetime.timedelta(days=(wd - (start_date.weekday() + 1) + 7) % 7)
+            while current <= end_date:
+                if current >= cur_date:
+                    meeting_date_list.append(
+                        {
+                            "date": current.strftime("%Y-%m-%d"),
+                            "start": meeting["cycle_start"],
+                            "end": meeting["cycle_end"]
+                        }
+                    )
+                current += datetime.timedelta(weeks=int(cycle_interval))
+    elif meeting["cycle_type"] == CycleType.Month:
+        # 从月份第一天开始
+        current_month = start_date.replace(day=1)
+        while current_month <= end_date:
+            year, month = current_month.year, current_month.month
+            # 获取当月最后一天
+            last_day = calendar.monthrange(year, month)[1]
+            for day in meeting.get("cycle_point") or list():
+                # 处理无效日期
+                meeting_day = min(day, last_day)
+                hours_list = meeting["cycle_start"].split(":")
+                hours = int(hours_list[0])
+                minutes = int(hours_list[1])
+                meeting_date = datetime.datetime(year, month, meeting_day, hours, minutes)
+                # 如果早于start_time，跳过
+                if meeting_date < start_date:
+                    continue
+                if end_date >= meeting_date >= cur_date:
+                    meeting_date_list.append(
+                        {
+                            "date": meeting_date.strftime("%Y-%m-%d"),
+                            "start": meeting["cycle_start"],
+                            "end": meeting["cycle_end"]
+                        }
+                    )
+            if month == 12:
+                current_month = datetime.datetime(year + 1, 1, 1)
+            else:
+                current_month = datetime.datetime(year, month + 1, 1)
+    else:
+        logger.info("invalid cycle type")
+    return meeting_date_list

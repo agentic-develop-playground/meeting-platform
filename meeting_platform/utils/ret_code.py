@@ -69,6 +69,10 @@ class RetCode(RetCodeBase):
     STATUS_MEETING_MODIFY_COUNT_LIMIT = STATUS_FACILITY_MEETING + 15
     STATUS_MEETING_PUT_RUNNING = STATUS_FACILITY_MEETING + 16
     STATUS_MEETING_REPEAT_FAILED = STATUS_FACILITY_MEETING + 17
+    STATUS_MEETING_CANNOT_DELETE_FAILED = STATUS_FACILITY_MEETING + 18
+    STATUS_MEETING_IN_HALF_YEAR_FAILED = STATUS_FACILITY_MEETING + 19
+    STATUS_MEETING_DATE_NOT_IN_RANGE_FAILED = STATUS_FACILITY_MEETING + 20
+    STATUS_MEETING_PUT_INVALID_DATE = STATUS_FACILITY_MEETING + 21
 
     EN_OPERATION = {
         # common
@@ -102,7 +106,7 @@ class RetCode(RetCodeBase):
         STATUS_MEETING_NO_AVAILABLE_HOST: "There is currently no available host, please go to the official website to "
                                           "view scheduled meetings",
         STATUS_MEETING_DATE_CONFLICT: "Time conflict, please adjust the time to schedule the meeting",
-        STATUS_MEETING_CANNOT_BE_OPERATE: "Cannot be deleted or update 1 hours before the meeting",
+        STATUS_MEETING_CANNOT_BE_OPERATE: "Cannot be deleted or update 30 minutes before the meeting",
         STATUS_MEETING_NO_PERMISSION: "Failed to operate a meeting due to insufficient permissions",
         STATUS_MEETING_INVALID_GROUP_NAME: "Invalid SIG name",
         STATUS_MEETING_INVALID_START: "The start time should not be earlier than the current time",
@@ -112,6 +116,14 @@ class RetCode(RetCodeBase):
         STATUS_MEETING_MODIFY_COUNT_LIMIT: "Modifying the meeting has exceeded the limit",
         STATUS_MEETING_PUT_RUNNING: "The meeting is in progress and cannot be operated",
         STATUS_MEETING_REPEAT_FAILED: "The meeting is repeated and the operation failed.",
+        STATUS_MEETING_CANNOT_DELETE_FAILED: "There is only one sub-meeting left in the recurring meeting,"
+                                             "Please delete the entire recurring meeting.",
+        STATUS_MEETING_IN_HALF_YEAR_FAILED: "The end date of a recurring meeting can only be within six months, "
+                                            "The operation failed.",
+        STATUS_MEETING_DATE_NOT_IN_RANGE_FAILED: "There are no meetings available "
+                                                 "during the selected periodic meeting time period.",
+        STATUS_MEETING_PUT_INVALID_DATE: "The time you modified is unreasonable. "
+                                         "Please set the time between two recurring meetings.",
 
     }
 
@@ -145,7 +157,7 @@ class RetCode(RetCodeBase):
         STATUS_MEETING_FAILED_UPDATE: "修改会议失败",
         STATUS_MEETING_NO_AVAILABLE_HOST: "目前没有可用的主持人，请前往官网查看预约会议",
         STATUS_MEETING_DATE_CONFLICT: "会议时间冲突，请调整会议预定时间(距离会议开始或结束半小时内存在会议)",
-        STATUS_MEETING_CANNOT_BE_OPERATE: "距离会议开始时间小于一个小时，无法修改或删除",
+        STATUS_MEETING_CANNOT_BE_OPERATE: "距离会议开始时间小于半个小时，无法修改或删除",
         STATUS_MEETING_NO_PERMISSION: "权限不足导致操作会议失败",
         STATUS_MEETING_INVALID_GROUP_NAME: "错误的SIG组名",
         STATUS_MEETING_INVALID_START: "请输入正确的开始时间",
@@ -155,5 +167,9 @@ class RetCode(RetCodeBase):
         STATUS_MEETING_MODIFY_COUNT_LIMIT: "修改会议已超限制",
         STATUS_MEETING_PUT_RUNNING: "会议正在进行中，无法操作此会议",
         STATUS_MEETING_REPEAT_FAILED: "你创建的会议已经存在，请勿重复创建，操作失败",
+        STATUS_MEETING_CANNOT_DELETE_FAILED: "周期性会议目前只剩一场子会议，请删除整个周期性会议",
+        STATUS_MEETING_IN_HALF_YEAR_FAILED: "周期性会议结束日期只能为半年内，操作失败",
+        STATUS_MEETING_DATE_NOT_IN_RANGE_FAILED: "请选择的周期性会议时间段内无会议可建",
+        STATUS_MEETING_PUT_INVALID_DATE: "修改的日期不合理，请将日期设置在相邻的两个周期性子会议中",
 
     }

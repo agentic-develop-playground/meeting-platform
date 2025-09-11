@@ -17,6 +17,7 @@ from meeting.infrastructure.adapter.obs_adapter_impl import ObsAdapterImp
 logger = logging.getLogger("log")
 
 
+# noinspection PyMethodMayBeStatic
 class ObsUploadAdapterImpl(UploadAdapter):
     def __init__(self, meeting):
         super(ObsUploadAdapterImpl, self).__init__(meeting)
@@ -30,8 +31,12 @@ class ObsUploadAdapterImpl(UploadAdapter):
         date = self.meeting["date"]
         group_name = self.meeting["group_name"]
         community = self.meeting["community"]
-        month = datetime.datetime.strptime(date, '%Y-%m-%d').strftime('%b').lower()
-        return '{0}/{1}/{2}/{3}/{3}.mp4'.format(community, group_name, month, mid)
+        month = datetime.datetime.strptime(date, '%Y-%m-%d').strftime('%d-%m')
+        if "sub_id" in self.meeting.keys():
+            sub_id = self.meeting["sub_id"]
+        else:
+            sub_id = ""
+        return '{0}/{1}/{2}/{3}_{4}/{3}_{4}.mp4'.format(community, group_name, month, mid, sub_id)
 
     def _get_obs_cover_object(self, video_object):
         return video_object.replace('.mp4', '.png')
@@ -70,6 +75,7 @@ class ObsUploadAdapterImpl(UploadAdapter):
 
     @func_retry()
     def upload(self, video_path, cover_path):
+        logger.info("start to upload to obs...")
         # 1.upload the video
         video_object = self._get_obs_video_object()
         metadata = self._generate_obs_metadata(video_object, video_path)
@@ -83,9 +89,8 @@ class ObsUploadAdapterImpl(UploadAdapter):
                          format(self.meeting["community"], self.meeting["mid"], upload_video_res))
             return
         # 2.upload the cover png
-        upload_cover_res = self.obs_adapter_imp.upload_file(self.bucket,
-                                                            self._get_obs_cover_object(video_object),
-                                                            cover_path)
+        cover_object = self._get_obs_cover_object(video_object)
+        upload_cover_res = self.obs_adapter_imp.upload_file(self.bucket, cover_object, cover_path)
         if upload_cover_res.get('status') != 200:
             logger.error('[ObsUploadAdapterImpl/upload] {}/{}: fail to upload cover to OBS, the reason is {}'.
                          format(self.meeting["community"], self.meeting["mid"], upload_cover_res))
@@ -94,4 +99,4 @@ class ObsUploadAdapterImpl(UploadAdapter):
             logger.error('[ObsUploadAdapterImpl/upload] {}/{} Unexpected upload cover result to OBS: {}'.
                          format(self.meeting["community"], self.meeting["mid"], upload_video_res))
             return
-        return True
+        return video_object, cover_object

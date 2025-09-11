@@ -1,0 +1,64 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# @Time    : 2025/7/23 15:18
+# @Author  : Tom_zc
+# @FileName: meeting_cycle_sub_dao.py
+# @Software: PyCharm
+
+
+from meeting.models import MeetingCycleSubMeeting
+from django.db.models import Q
+
+
+class MeetingCycleSubMeetingDao:
+    _dao = MeetingCycleSubMeeting
+
+    @classmethod
+    def get_all(cls):
+        return cls._dao.objects.all()
+
+    @classmethod
+    def get_by_mid(cls, mid):
+        return cls._dao.objects.filter(mid=mid).all().values()
+
+    @classmethod
+    def get_by_date_range(cls, start_date, end_date, mid):
+        return cls._dao.objects.filter(date__gte=start_date, date__lte=end_date, mid=mid).values_list("date", flat=True)
+
+    @classmethod
+    def get_first_by_date_range(cls, start_date, end_date, mid, sub_ids):
+        return cls._dao.objects.filter(date__gte=start_date, date__lte=end_date, mid=mid, sub_id__in=sub_ids).first()
+
+    @classmethod
+    def get_counts_by_mid(cls, mid):
+        return cls._dao.objects.filter(mid=mid).count()
+
+    @classmethod
+    def create(cls, **kwargs):
+        return cls._dao.objects.create(**kwargs)
+
+    @classmethod
+    def get_by_mid_and_sub_id(cls, mid, sub_id):
+        return cls._dao.objects.filter(mid=mid, sub_id=sub_id).first()
+
+    @classmethod
+    def get_by_sub_id(cls, sub_id):
+        return cls._dao.objects.filter(sub_id=sub_id).first()
+
+    @classmethod
+    def delete_by_mid_and_sub_id(cls, mid, sub_id):
+        return cls._dao.objects.filter(mid=mid, sub_id=sub_id).delete()
+
+    @classmethod
+    def delete_by_mid(cls, mid, cur_date_str, cur_time_str):
+        return cls._dao.objects.filter(mid=mid).filter(Q(date__gt=cur_date_str) |
+                                                       Q(date=cur_date_str, start__gt=cur_time_str)).delete()
+
+    @classmethod
+    def get_by_mid_and_date(cls, mid, cur_date_str, cur_time_str):
+        return cls._dao.objects.filter(mid=mid).filter(Q(date__gt=cur_date_str) |
+                                                       Q(date=cur_date_str, start__gt=cur_time_str)).all()
+
+    @classmethod
+    def update_by_mid_and_sub_id(cls, mid, sub_id, **kwargs):
+        return cls._dao.objects.filter(mid=mid, sub_id=sub_id).update(**kwargs)
