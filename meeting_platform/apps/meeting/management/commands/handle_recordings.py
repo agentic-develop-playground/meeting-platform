@@ -125,10 +125,10 @@ class HandleRecording:
         start_date, end_date = self._get_valid_query_range()
         meeting_infos = self.meeting_dao.get_meeting_by_obs_records(self.community, list(meeting_obs_records),
                                                                     start_date, end_date)
-        upload_mid = ",".join([str(i.mid) for i in meeting_infos])
-        logger.info("[HandleRecording/upload_obs]: Find need to upload mid({}/{})".format(upload_mid, self.community))
+        logger.info("[HandleRecording/upload_obs]: Find need to upload mid({}/{})".format(len(meeting_infos), self.community))
         for meeting_obj in meeting_infos:
             try:
+                logger.info("start to handler the mid:{}".format(meeting_obj.mid))
                 meeting = model_to_dict(meeting_obj)
                 if meeting["is_cycle"]:
                     sub_ids = self.meeting_obs_records_dao.get_records_by_status_and_mid(meeting["mid"],
@@ -148,14 +148,17 @@ class HandleRecording:
                     logger.info("[HandleRecording/upload_all]: Find empty cover_path({})".format(meeting["mid"]))
                     continue
                 video_path = trimmer_video(video_path, meeting["id"])
-                video_object, cover_object = self.upload_obs_adapter_impl(meeting).upload(video_path, cover_path)
+                obs_adapter_impl = self.upload_obs_adapter_impl(meeting)
+                video_object, cover_object = obs_adapter_impl.upload(video_path, cover_path)
                 if not video_object or not cover_object:
                     raise Exception("upload obs failed")
                 self.translate_adapter_impl.translate(meeting["mid"], meeting.get("sub_id"), video_object)
+                video_object_link = "https://" + obs_adapter_impl.bucket + "." + obs_adapter_impl.endpoint + "/" + video_object
+                cover_object_link = "https://" + obs_adapter_impl.bucket + "." + obs_adapter_impl.endpoint + "/" + cover_object
                 self.meeting_obs_records_dao.update_by_mid(meeting["mid"], meeting.get("sub_id"),
                                                            status=UploadStatus.TRANSLATE.value,
-                                                           text_video_url=video_object,
-                                                           text_picture_url=cover_object)
+                                                           text_video_url=video_object_link,
+                                                           text_picture_url=cover_object_link)
                 cache_path[meeting_obj.id] = {
                     "video_path": video_path,
                     "cover_path": cover_path,
@@ -163,7 +166,7 @@ class HandleRecording:
                 logger.info("[HandleRecording/upload_obs]: handler success({})".format(meeting["mid"]))
             except Exception as e:
                 logger.error("[HandleRecording/upload_obs] e:{}, traceback:{}".format(str(e), traceback.format_exc()))
-            return cache_path
+        return cache_path
 
     def upload_bili(self, cache_path):
         """upload bili: get video --> upload bili"""

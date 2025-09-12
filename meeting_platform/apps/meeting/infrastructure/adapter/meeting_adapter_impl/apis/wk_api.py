@@ -583,4 +583,10 @@ class WkApi(MeetingAdapter):
             logger.info('[WkApi/get_video] {} filter to no available recordings which mid is：{}'
                         .format(self.community, action.mid))
             return
-        return self._download_video(action, recordings)
+        video_path = self._download_video(action, recordings)
+        logger.info("the current video size {}/{}".format(os.path.getsize(video_path), self.bili_video_min_size))
+        if os.path.getsize(video_path) < self.bili_video_min_size:
+            logger.info('[WkApi/get_video] {} filter to size lt the min size {} which mid is：{}'
+                        .format(self.community, self.bili_video_min_size, action.mid))
+            return
+        return video_path
