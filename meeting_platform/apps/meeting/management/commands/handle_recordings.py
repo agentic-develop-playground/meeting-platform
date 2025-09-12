@@ -115,7 +115,7 @@ class HandleRecording:
     def _get_valid_query_range():
         cur_date = datetime.datetime.now()
         start_date = (cur_date - datetime.timedelta(days=settings.BILI_UPLOAD_DATE)).strftime('%Y-%m-%d %H:%M')
-        end_date = cur_date.strftime('%Y-%m-%d %H:%M')
+        end_date = cur_date.strftime('%Y-%m-%d')
         return start_date, end_date
 
     def upload_obs(self):

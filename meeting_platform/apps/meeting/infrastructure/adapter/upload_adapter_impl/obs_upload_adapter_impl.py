@@ -31,7 +31,7 @@ class ObsUploadAdapterImpl(UploadAdapter):
         date = self.meeting["date"]
         group_name = self.meeting["group_name"]
         community = self.meeting["community"]
-        month = datetime.datetime.strptime(date, '%Y-%m-%d').strftime('%d-%m')
+        month = datetime.datetime.strptime(date, '%Y-%m-%d').strftime('%b').lower()
         if "sub_id" in self.meeting.keys():
             sub_id = self.meeting["sub_id"]
         else:
