@@ -298,5 +298,4 @@ class ZoomApi(MeetingAdapter):
             action = ZoomGetVideo(mid=record["id"])
             filename = self._download_video(action, download_url)
             path_dict[filename] = record
-            break
         return path_dict
