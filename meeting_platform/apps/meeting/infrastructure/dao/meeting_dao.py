@@ -16,13 +16,18 @@ class MeetingDao:
         query_set = cls.dao.objects.filter(community=community,
                                            platform=platform,
                                            is_delete=0)
-        query_set = query_set.filter(Q(cycle_sub_meeting__date=date,
-                                       cycle_sub_meeting__start__lt=end_search,
-                                       cycle_sub_meeting__end__gt=start_search) |
-                                     Q(date=date, start__lt=end_search, end__gt=start_search))
+        conflict_query_set = query_set.filter(Q(cycle_sub_meeting__date=date,
+                                                cycle_sub_meeting__start__lt=end_search,
+                                                cycle_sub_meeting__end__gt=start_search) |
+                                              Q(date=date, start__lt=end_search, end__gt=start_search))
+        cur_query_set = query_set.filter(Q(cycle_sub_meeting__date=date) | Q(date=date))
         if meeting_id is None:
-            return query_set.values_list("host_id", flat=True)
-        return query_set.exclude(id=meeting_id).values_list("host_id", flat=True)
+            return (conflict_query_set.values_list("host_id", flat=True),
+                    conflict_query_set.values_list("topic", flat=True),
+                    cur_query_set.values_list("host_id", flat=True))
+        return (conflict_query_set.exclude(id=meeting_id).values_list("host_id", flat=True),
+                conflict_query_set.exclude(id=meeting_id).values_list("topic", flat=True),
+                cur_query_set.values_list("host_id", flat=True))
 
     @classmethod
     def get_today_meeting_counts(cls, community, sponsor, date):
@@ -66,6 +71,12 @@ class MeetingDao:
     def delete_by_id(cls, meeting_id, sequence):
         return cls.dao.objects.filter(id=meeting_id, is_delete=0).update(is_delete=1,
                                                                          sequence=sequence)
+
+    @classmethod
+    def get_cur_date_meeting(cls, community, cur_date, start_time, end_time):
+        query_set = cls.dao.objects.filter(community=community, is_delete=0)
+        return query_set.filter(Q(cycle_sub_meeting__date=cur_date, cycle_sub_meeting__end__gte= start_time, cycle_sub_meeting__end__lt=end_time) |
+                                Q(date=cur_date, end__gte=start_time, end__lt=end_time)).all()
 
     @classmethod
     def get_meeting_by_date(cls, community, start_date, end_date, end_time):

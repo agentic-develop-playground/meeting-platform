@@ -56,9 +56,11 @@ class MeetingApp:
     def _get_and_check_conflict_meetings_by_date(self, meeting, meeting_id=None, check_single_meeting=False):
         """check the conflict the meeting, if not conflict and return meeting"""
         unavailable_host_ids = list()
+        conflict_topics = list()
+        meeting_date_list = list()
+        cur_day_host_ids = list()
         community = meeting["community"]
         platform = meeting["platform"]
-        meeting_date_list = list()
 
         if not meeting["is_cycle"] or check_single_meeting:
             meeting_date_list.append({"date": meeting["date"], "start": meeting["start"], "end": meeting["end"]})
@@ -76,9 +78,17 @@ class MeetingApp:
                 (datetime.datetime.strptime(cycle_date["end"], '%H:%M') + datetime.timedelta(minutes=30)),
                 '%H:%M')
             # 会议的mid
-            unavailable_host_id = self.meeting_dao.get_conflict_meeting(community, platform,  cycle_date["date"],
-                                                                        start_search, end_search, meeting_id)
+            unavailable_host_id, conflict_topic, cur_day_host_id = self.meeting_dao.get_conflict_meeting(community, platform,  cycle_date["date"],
+                                                                                                         start_search, end_search, meeting_id)
+            if meeting.get("host_id") is not None and meeting["host_id"] in unavailable_host_id:
+                logger.info('[MeetingApp/_get_and_check_conflict_meetings_by_date] '
+                           '{}/{}: update find the conflict host:{}'.format(
+                    meeting["community"], meeting["platform"], meeting["host_id"]))
+                raise MyValidationError(RetCode.STATUS_MEETING_DATE_CONFLICT, None, ",".join(conflict_topic))
             unavailable_host_ids.extend(unavailable_host_id)
+            conflict_topics.extend(conflict_topic)
+            cur_day_host_ids.extend(cur_day_host_id)
+        logger.info("unavailable_host_ids host id:{}".format(",".join(unavailable_host_ids)))
         # get the all host
         host_info = settings.COMMUNITY_HOST[meeting["community"]][meeting["platform"]]
         host_list = [key["HOST"] for key in host_info]
@@ -86,8 +96,12 @@ class MeetingApp:
         if len(available_host_id) == 0:
             logger.info('[MeetingApp/_get_and_check_conflict_meetings_by_date] '
                         '{}/{}: no available host'.format(meeting["community"], meeting["platform"]))
-            raise MyValidationError(RetCode.STATUS_MEETING_DATE_CONFLICT)
-        return available_host_id
+            raise MyValidationError(RetCode.STATUS_MEETING_DATE_CONFLICT, None, ",".join(list(set(conflict_topics))))
+        # 排除当天有会议的host_ids, 优先选择当天没有会议的
+        preferred_choice = list(set(available_host_id) - set(cur_day_host_ids))
+        if len(preferred_choice) > 0:
+            return secrets.choice(preferred_choice)
+        return secrets.choice(available_host_id)
 
     @staticmethod
     def _is_in_prepare_meeting_duration_before_meeting(meeting, check_single_meeting=False):
@@ -334,8 +348,7 @@ class MeetingApp:
         # check the cycle end
         self._check_cycle_end(meeting)
         # check meeting-conflict
-        available_host_id = self._get_and_check_conflict_meetings_by_date(meeting)
-        meeting["host_id"] = secrets.choice(available_host_id)
+        meeting["host_id"] = self._get_and_check_conflict_meetings_by_date(meeting)
         # create meeting
         meeting_info = self.meeting_adapter_impl.create(meeting["host_id"], meeting)
         meeting.update(meeting_info)

@@ -22,17 +22,15 @@ with open(CONFIG_PATH, 'r') as f:
 with open(VAULT_PATH, 'r') as f:
     VAULT_CONF = yaml.safe_load(f)
 
+MYSQL_TLS_PEM_CONTENT = None
 if not CONF["DEBUG"]:
     with open(CONF["MYSQL_TLS_PEM_PATH"], 'r') as f:
         MYSQL_TLS_PEM_CONTENT = f
-else:
-    MYSQL_TLS_PEM_CONTENT = None
 
+KAFKA_CRT_CONTENT = None
 if CONF.get("KAFKA_CRT_PATH"):
     with open(CONF["KAFKA_CRT_PATH"], "r") as f:
         KAFKA_CRT_CONTENT = f.read()
-else:
-    KAFKA_CRT_CONTENT = None
 
 TLS_CRT_PATH = CONF.get("UWSGI_TLS_CRT_PATH")
 
@@ -270,6 +268,9 @@ BILI_UPLOAD_DATE = 7
 
 # 查询会议信息（包括参会者）的有效时间,单位day
 QUERY_MEETING_DATE = 7
+
+# 强制结束会议的查询时间
+FORCE_MEETING_END_TIME = 15
 
 # 单人单天创建会议的限制次数
 MEETING_CREATE_COUNT = 10

@@ -4,6 +4,8 @@
 
 会议主题：{{topic}}
 
+会议发起人： {{sponsor}}
+
 会议内容：
 {{summary}}
 
@@ -21,6 +23,8 @@ Hello!
 {{sig_name}} invites you to attend the {{platform}} conference will be held at {{start_time}}
 
 The subject of the conference is {{topic}}
+
+The sponsor of the conference is {{sponsor}}
 
 Summary:
 {{summary}}

@@ -30,3 +30,7 @@ class MeetingAdapter(ABC):
     @abstractmethod
     def get_video(self, *args, **kwargs):
         raise NotImplementedError
+
+    @abstractmethod
+    def force_end_meeting(self, *args, **kwargs):
+        pass

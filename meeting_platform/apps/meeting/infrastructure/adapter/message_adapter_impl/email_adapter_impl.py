@@ -62,6 +62,7 @@ class EmailTemplate:
         else:
             self.toaddrs_list = list()
         self.topic = meeting["topic"]
+        self.sponsor = meeting["sponsor"]
         self.etherpad = meeting["etherpad"] or ""
         self.join_url = meeting["join_url"]
         self.sig_name = meeting["group_name"]
@@ -85,7 +86,10 @@ class EmailTemplate:
         self.cycle_end = meeting.get("cycle_end")
         self.cycle_type = meeting.get("cycle_type")
         self.cycle_interval = meeting.get("cycle_interval")
-        self.cycle_point = meeting.get("cycle_point")
+        if meeting.get("cycle_point") is None:
+            self.cycle_point = ""
+        else:
+            self.cycle_point = meeting.get("cycle_point")
         self.is_cycle = meeting.get("is_cycle")
         if not self.is_cycle:
             self.start_time = ' '.join([self.date, self.start])
@@ -117,7 +121,7 @@ class EmailTemplate:
             replace('{{join_url}}', self.join_url).replace('{{topic}}', self.topic). \
             replace('{{etherpad}}', self.etherpad).replace('{{platform}}', self.platform). \
             replace('{{portal_zh}}', self.portal_zh).replace('{{portal_en}}', self.portal_en). \
-            replace('{{summary}}', str(self.agenda))
+            replace('{{summary}}', str(self.agenda)).replace('{{sponsor}}', self.sponsor)
         return MIMEText(body_of_email, _charset='utf-8')
 
     def get_delete_meeting_template_by_meeting_info(self):

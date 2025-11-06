@@ -49,3 +49,6 @@ class GetParticipantsAction(BaseAction):
 
 class GetVideoAction(BaseAction):
     function_action = "get_video"
+
+class ForceEndAction(BaseAction):
+    function_action = "force_end_meeting"

@@ -4,6 +4,8 @@
 
 会议主题：{{topic}}
 
+会议发起人： {{sponsor}}
+
 会议链接：{{join_url}}
 
 会议纪要：{{etherpad}}
@@ -18,6 +20,8 @@ Hello!
 {{sig_name}} invites you to attend the {{platform}} conference(auto recording) will be held at {{start_time}}
 
 The subject of the conference is {{topic}}
+
+The sponsor of the conference is {{sponsor}}
 
 You can join the meeting at {{join_url}}
 

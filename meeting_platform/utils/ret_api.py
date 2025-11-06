@@ -23,10 +23,12 @@ class MyValidationError(APIException):
     default_detail = _('Invalid input.')
     default_code = 'invalid'
 
-    def __init__(self, detail=None, code=None):
+    def __init__(self, detail=None, code=None, *args):
         self.detail_code = detail
         if isinstance(detail, int):
             detail = RetCode.get_name_by_code(detail)
+            if len(args) > 0:
+                detail = detail % args
         elif detail is None:
             detail = self.default_detail
         if code is None:

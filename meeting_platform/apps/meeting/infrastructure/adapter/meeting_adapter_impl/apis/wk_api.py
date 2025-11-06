@@ -18,7 +18,7 @@ from meeting_platform.utils.file_stream import download_big_file
 from meeting.domain.repository.meeting_adapter import MeetingAdapter
 from meeting.infrastructure.adapter.meeting_adapter_impl.actions.wk_action import WkCreateAction, WkUpdateAction, \
     WkDeleteAction, WkGetParticipantsAction, WkGetVideo, WkCreateCycleAction, WkUpdateCycleAction, \
-    WkUpdateCycleSubAction, WkDeleteCycleAction, WkDeleteCycleSubAction
+    WkUpdateCycleSubAction, WkDeleteCycleAction, WkDeleteCycleSubAction, WkForceEndAction
 from meeting_platform.utils.ret_api import MyValidationError
 from meeting_platform.utils.ret_code import RetCode
 
@@ -42,6 +42,9 @@ class WkApi(MeetingAdapter):
     list_history_path = "/v1/mmc/management/conferences/history"
     download_url_path = "/v1/mmc/management/record/downloadurls"
     list_recordings_path = "/v1/mmc/management/record/files"
+    detail_meeting_path = "/v1/mmc/management/conferences/confDetail"
+    get_conf_token_path = "/v1/mmc/control/conferences/token"
+    force_end_path = "/v1/mmc/control/conferences/stop"
 
     def __init__(self, community, platform, host_id):
         platform_info = settings.COMMUNITY_HOST[community][platform]
@@ -590,3 +593,61 @@ class WkApi(MeetingAdapter):
                         .format(self.community, self.bili_video_min_size, action.mid))
             return
         return video_path
+
+    def _get_detail_info(self, mid):
+        access_token = self._create_proxy_token()
+        headers = {
+            'X-Access-Token': access_token
+        }
+        params = {
+            'conferenceID': mid,
+        }
+        response = requests.get(self._get_url(self.detail_meeting_path), headers=headers, params=params,
+                                timeout=self.time_out)
+        if response.status_code != 200:
+            logger.error('[WkApi] Fail to get detail info {}, and return data:{}'.format(mid,
+                                                                                         response.json()))
+        logger.info('[WkApi] get detail info:{}'.format(mid))
+        return response.json()
+
+    def _get_config_token(self, mid):
+        meeting_detail_info = self._get_detail_info(mid)
+        password = [password_entry for password_entry in meeting_detail_info['conferenceData']['passwordEntry'] if
+                    password_entry["conferenceRole"] == "chair"][0]["password"]
+
+        access_token = self._create_proxy_token()
+        headers = {
+            'Authorization': access_token,
+            'X-Password': password,
+            'X-Login-Type': "1"
+        }
+        params = {
+            'conferenceID': mid,
+        }
+        response = requests.get(self._get_url(self.get_conf_token_path), headers=headers, params=params,
+                                timeout=self.time_out)
+        if response.status_code != 200:
+            logger.error('[WkApi] Fail to get conf token {}, and return data:{}'.format(mid,
+                                                                                        response.json()))
+        logger.info('[WkApi] get detail info:{}'.format(mid))
+        return response.json()
+
+    def force_end_meeting(self, action):
+        """force end meeting"""
+        if not isinstance(action, WkForceEndAction):
+            raise RuntimeError("[WkApi] action must be the subclass of WkForceEndAction")
+        config_info = self._get_config_token(action.mid)
+        token = config_info['data']['token']
+        headers = {
+            'X-Conference-Authorization': token
+        }
+        params = {
+            'conferenceID': action.mid,
+        }
+        response = requests.put(self._get_url(self.force_end_path), headers=headers, params=params,
+                                timeout=self.time_out)
+        if response.status_code != 200:
+            logger.error('[WkApi] Fail to force end meeting {}, and return data:{}'.format(action.mid,
+                                                                                           response.json()))
+        logger.info('[WkApi] force end meeting meeting {}'.format(action.mid))
+        return response.status_code

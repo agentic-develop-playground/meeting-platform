@@ -10,12 +10,12 @@ from meeting_platform.utils.ret_api import MyInnerError
 from meeting_platform.utils.ret_code import RetCode
 from meeting.domain.repository.meeting_adapter import MeetingAdapter
 from meeting.infrastructure.adapter.meeting_adapter_impl.actions.tencent_action import TencentCreateAction, \
-    TencentDeleteAction, TencentGetParticipantsAction, TencentGetVideo, TencentUpdateAction
+    TencentDeleteAction, TencentGetParticipantsAction, TencentGetVideo, TencentUpdateAction, TencentForceEndAction
 from meeting.infrastructure.adapter.meeting_adapter_impl.actions.wk_action import WkCreateAction, WkUpdateAction, \
     WkDeleteAction, WkGetParticipantsAction, WkGetVideo, WkCreateCycleAction, WkUpdateCycleAction, WkDeleteCycleAction, \
-    WkUpdateCycleSubAction, WkDeleteCycleSubAction
+    WkUpdateCycleSubAction, WkDeleteCycleSubAction, WkForceEndAction
 from meeting.infrastructure.adapter.meeting_adapter_impl.actions.zoom_action import ZoomCreateAction, \
-    ZoomUpdateAction, ZoomDeleteAction, ZoomGetParticipantsAction, ZoomGetVideo
+    ZoomUpdateAction, ZoomDeleteAction, ZoomGetParticipantsAction, ZoomGetVideo, ZoomForceEndAction
 from meeting.infrastructure.adapter.meeting_adapter_impl.apis.base_api import handler_meeting
 from meeting.infrastructure.adapter.meeting_adapter_impl.apis.tencent_api import TencentApi
 from meeting.infrastructure.adapter.meeting_adapter_impl.apis.wk_api import WkApi
@@ -210,6 +210,24 @@ class MeetingAction:
             raise RuntimeError("[MeetingAdapterImpl/get_video_action] invalid platform type")
         return action
 
+    @staticmethod
+    def get_force_end_action(platform, meeting):
+        if platform.lower() == TencentApi.meeting_type:
+            action = TencentForceEndAction(
+                m_mid=meeting["m_mid"],
+            )
+        elif platform.lower() == WkApi.meeting_type:
+            action = WkForceEndAction(
+                mid=meeting["mid"]
+            )
+        elif platform.lower() == ZoomApi.meeting_type:
+            action = ZoomForceEndAction(
+                mid=meeting["mid"]
+            )
+        else:
+            raise RuntimeError("[MeetingAdapterImpl/get_force_end_action] invalid platform type")
+        return action
+
 
 class MeetingAdapterImpl(MeetingAdapter):
     meeting_action = MeetingAction
@@ -267,4 +285,8 @@ class MeetingAdapterImpl(MeetingAdapter):
 
     def get_video(self, meeting):
         action = self.meeting_action.get_video_action(meeting["platform"], meeting)
+        return handler_meeting(meeting["community"], meeting["platform"], meeting["host_id"], action)
+
+    def force_end_meeting(self, meeting):
+        action = self.meeting_action.get_force_end_action(meeting["platform"], meeting)
         return handler_meeting(meeting["community"], meeting["platform"], meeting["host_id"], action)

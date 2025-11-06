@@ -14,12 +14,13 @@ import time
 from datetime import datetime
 
 from django.conf import settings
+from rest_framework import status
 
 from meeting_platform.utils.common import make_nonce, get_video_path
 from meeting_platform.utils.file_stream import download_big_file
 from meeting.domain.repository.meeting_adapter import MeetingAdapter
 from meeting.infrastructure.adapter.meeting_adapter_impl.actions.tencent_action import TencentCreateAction, \
-    TencentDeleteAction, TencentGetParticipantsAction, TencentGetVideo, TencentUpdateAction
+    TencentDeleteAction, TencentGetParticipantsAction, TencentGetVideo, TencentUpdateAction, TencentForceEndAction
 from meeting_platform.utils.ret_api import MyValidationError
 from meeting_platform.utils.ret_code import RetCode
 
@@ -35,6 +36,7 @@ class TencentApi(MeetingAdapter):
     participants_path = "/v1/meetings/{}/participants?userid={}"
     record_path = "/v1/records?start_time={}&end_time={}&page_size=20&page={}&operator_id_type=1&operator_id={}&query_record_type=1"
     video_download_path = "/v1/addresses/{}?userid={}"
+    force_end_path = "/v1/meetings/{}/dismiss"
 
     def __init__(self, community, platform, host_id):
         platform_info = settings.COMMUNITY_HOST[community][platform]
@@ -187,9 +189,11 @@ class TencentApi(MeetingAdapter):
         r = requests.post(url, headers=headers, data=payload,
                           timeout=self.time_out)
         if r.status_code != 200:
-            logger.error('Fail to cancel meeting {}'.format(mid))
-            logger.error(r.content.decode("utf-8"))
-            return r.status_code
+            logger.error('Fail to cancel meeting {}, and detail is:{}'.format(mid,  r.content.decode("utf-8")))
+            resp_json = r.json()
+            if isinstance(resp_json, dict) and resp_json.get("error_info") is not None:
+                if resp_json["error_info"].get("new_error_code") == 101013603:
+                    return status.HTTP_200_OK
         logger.info('[TencentApi] Cancel meeting {}'.format(mid))
         return r.status_code
 
@@ -310,3 +314,30 @@ class TencentApi(MeetingAdapter):
             logger.info('[TencentApi/get_video] {}/{}:filter no available recording'.format(self.community, action.mid))
             return
         return self._download_video(action, available_record)
+
+    def force_end_meeting(self, action):
+        """force end meeting"""
+        if not isinstance(action, TencentForceEndAction):
+            raise RuntimeError("[TencentApi] action must be the subclass of TencentForceEndAction")
+        payload = json.dumps({
+            "operator_id": self.host_id,
+            "operator_id_type": 1,
+            "instanceid": 1,
+            "reason_code": 3,
+            "reason_detail": "结束会议",
+            "retrieve_code": 1,
+            "force_dismiss_meeting": 1
+        })
+        m_mid = action.m_mid
+        uri = self.force_end_path.format(m_mid)
+        url = self._get_url(uri)
+        signature, headers = self._get_signature('POST', uri, payload)
+        r = requests.post(url, headers=headers, data=payload,
+                          timeout=self.time_out)
+        if r.status_code != 200:
+            logger.error('[TencentApi] Fail to force end meeting {}, and return data:{}'.format(m_mid,
+                                                                                                r.json()))
+            logger.error(r.content.decode("utf-8"))
+            return r.status_code
+        logger.info('[TencentApi] force end meeting {}'.format(m_mid))
+        return r.status_code

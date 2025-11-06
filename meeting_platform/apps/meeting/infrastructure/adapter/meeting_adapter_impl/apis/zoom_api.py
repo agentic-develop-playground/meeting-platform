@@ -17,7 +17,7 @@ from meeting_platform.utils.common import get_video_path
 from meeting_platform.utils.file_stream import download_big_file
 from meeting.domain.repository.meeting_adapter import MeetingAdapter
 from meeting.infrastructure.adapter.meeting_adapter_impl.actions.zoom_action import ZoomCreateAction, \
-    ZoomUpdateAction, ZoomDeleteAction, ZoomGetParticipantsAction, ZoomGetVideo
+    ZoomUpdateAction, ZoomDeleteAction, ZoomGetParticipantsAction, ZoomGetVideo, ZoomForceEndAction
 
 logger = logging.getLogger("log")
 
@@ -30,6 +30,7 @@ class ZoomApi(MeetingAdapter):
     delete_path = "/v2/meetings/{}"
     participants_path = "/v2/past_meetings/{}/participants?page_size=300"
     records_path = "/v2/users/{}/recordings"
+    force_end_path = "/v2/meetings/{}/status"
 
     my_obs_adapter_impl = ObsAdapterImp
 
@@ -299,3 +300,23 @@ class ZoomApi(MeetingAdapter):
             filename = self._download_video(action, download_url)
             path_dict[filename] = record
         return path_dict
+
+    def force_end_meeting(self, action):
+        """force end meeting"""
+        if not isinstance(action, ZoomForceEndAction):
+            raise RuntimeError("[ZoomApi] action must be the subclass of ZoomForceEndAction")
+        uri = self.force_end_path.format(action.mid)
+        token = self._get_oauth_token()
+        headers = {
+            "authorization": "Bearer {}".format(token)
+        }
+        data = {
+            "action": "end"
+        }
+        response = requests.request("PUT", self._get_url(uri), data=data,
+                                    headers=headers, timeout=self.time_out)
+        if response.status_code != 200:
+            logger.error('[ZoomApi] Fail to force end meeting {}, and return data:{}'.format(action.mid,
+                                                                                             response.json()))
+        return response.status_code
+
