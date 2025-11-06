@@ -22,6 +22,10 @@ class MeetingCycleSubMeetingDao:
         return cls._dao.objects.filter(mid=mid).all().values()
 
     @classmethod
+    def get_by_mid_date(cls, mid, date):
+        return cls._dao.objects.filter(mid=mid, date=date).first()
+
+    @classmethod
     def get_by_date_range(cls, start_date, end_date, mid):
         return cls._dao.objects.filter(date__gte=start_date, date__lte=end_date, mid=mid).values_list("date", flat=True)
 

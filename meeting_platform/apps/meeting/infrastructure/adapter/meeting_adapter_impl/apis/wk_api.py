@@ -607,11 +607,14 @@ class WkApi(MeetingAdapter):
         if response.status_code != 200:
             logger.error('[WkApi] Fail to get detail info {}, and return data:{}'.format(mid,
                                                                                          response.json()))
+            return None
         logger.info('[WkApi] get detail info:{}'.format(mid))
         return response.json()
 
     def _get_config_token(self, mid):
         meeting_detail_info = self._get_detail_info(mid)
+        if meeting_detail_info is None:
+            return None
         password = [password_entry for password_entry in meeting_detail_info['conferenceData']['passwordEntry'] if
                     password_entry["conferenceRole"] == "chair"][0]["password"]
 
@@ -637,6 +640,8 @@ class WkApi(MeetingAdapter):
         if not isinstance(action, WkForceEndAction):
             raise RuntimeError("[WkApi] action must be the subclass of WkForceEndAction")
         config_info = self._get_config_token(action.mid)
+        if config_info is None:
+            return None
         token = config_info['data']['token']
         headers = {
             'X-Conference-Authorization': token

@@ -15,14 +15,15 @@ from django.core.management.base import BaseCommand
 from django.forms import model_to_dict
 
 from meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl import MeetingAdapterImpl
-from meeting.infrastructure.dao import meeting_dao, meeting_participants_dao
+from meeting.infrastructure.dao import meeting_dao, meeting_participants_dao, meeting_cycle_sub_dao
 
 logger = logging.getLogger("log")
 
 
 class HandleMeeting:
     meeting_dao = meeting_dao.MeetingDao
-    meeting_participants_dao = meeting_participants_dao.MeetingParticipantsDao
+    _meeting_participants_dao = meeting_participants_dao.MeetingParticipantsDao
+    _meeting_cycle_sub_dao = meeting_cycle_sub_dao.MeetingCycleSubMeetingDao
     meeting_adapter_impl = MeetingAdapterImpl()
 
     def __init__(self, community):
@@ -58,10 +59,21 @@ class HandleMeeting:
     def refresh_meeting_participants(self):
         meetings = self._get_cur_day_meeting()
         for meeting in meetings:
-            meeting_info = self.meeting_participants_dao.get(meeting.id)
+            meeting_info = self._meeting_participants_dao.get(meeting.id)
             if not meeting_info:
                 logger.info("start to handle meeting:{}".format(meeting.id))
-                meeting_participants = self.meeting_adapter_impl.get_participants(model_to_dict(meeting))
+                meeting_dict = model_to_dict(meeting)
+                if meeting_dict["is_cycle"]:
+                    sub_meeting_info = self._meeting_cycle_sub_dao.get_by_mid_date(meeting_dict["mid"],
+                                                                                   datetime.datetime.now().strftime(
+                                                                                       '%Y-%m-%d'))
+                    if sub_meeting_info:
+                        meeting_dict["date"] = sub_meeting_info["date"]
+                        meeting_dict["start"] = sub_meeting_info["start"]
+                        meeting_dict["end"] = sub_meeting_info["end"]
+                    else:
+                        continue
+                meeting_participants = self.meeting_adapter_impl.get_participants(meeting_dict)
                 if meeting_participants.get("participants"):
                     participants = [user["name"] for user in meeting_participants["participants"]]
                     deduplication_participants = list(set(participants))
@@ -69,7 +81,7 @@ class HandleMeeting:
                         "meeting": meeting,
                         "participants": ",".join(deduplication_participants)
                     }
-                    self.meeting_participants_dao.create(**data)
+                    self._meeting_participants_dao.create(**data)
 
     def force_stop_meeting(self):
         meetings = self._get_cur_day_meeting()
