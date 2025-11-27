@@ -48,6 +48,10 @@ class MeetingDao:
         return cls.dao.objects.all()
 
     @classmethod
+    def get_meeting_group_name(cls, community):
+        return cls.dao.objects.filter(community=community, is_delete=0).order_by("group_name").values_list("group_name", flat=True).distinct()
+
+    @classmethod
     def create(cls, **kwargs):
         return cls.dao.objects.create(**kwargs)
 

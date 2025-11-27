@@ -16,7 +16,7 @@ from rest_framework.permissions import IsAuthenticated
 from meeting.application.meeting import MeetingApp
 from meeting.application.obs_records_app import OBSRecordsApp
 from meeting.controller.serializers.meeting_serializers import MeetingSerializer, SingleMeetingSerializer, \
-    TranslateVideoTextSerializer, CycleSubMeetingSerializer
+    TranslateVideoTextSerializer, CycleSubMeetingSerializer, MeetingGroupNameSerializer
 
 from meeting_platform.utils.customized.my_pagination import MyPagination
 from meeting_platform.utils.ret_code import RetCode
@@ -169,6 +169,18 @@ class SingleSubMeetingView(MySerializerParse, MyRetrieveModelMixin, MyUpdateAPIV
         return ret_json(data=data)
 
 
+class NotifyMeetingView(RetrieveAPIView, GenericAPIView):
+    lookup_field = "id"
+    serializer_class = EmptySerializers
+    queryset = MeetingApp.meeting_dao.get_queryset().filter(is_delete=0)
+    authentication_classes = (BasicAuthentication,)
+    app_class = MeetingApp()
+
+    def retrieve(self, *args, **kwargs):
+        data = self.app_class.notify_meeting(kwargs.get('id'))
+        return ret_json(data=data)
+
+
 class MeetingParticipantsView(RetrieveAPIView, GenericAPIView):
     lookup_field = "id"
     serializer_class = EmptySerializers
@@ -209,6 +221,18 @@ class MeetingDateView(MyListModelMixin, GenericAPIView):
         if is_record is not None:
             is_record = True if is_record.lower() == "true" else False
         data = self.app_class.get_meeting_date(community, group_name, date, is_record)
+        return ret_json(data=data)
+
+
+class MeetingGroupView(MyListModelMixin, GenericAPIView):
+    serializer_class = MeetingGroupNameSerializer
+    queryset = None
+    authentication_classes = (BasicAuthentication,)
+    app_class = MeetingApp()
+
+    def get(self, request):
+        community = request.query_params.get("community")
+        data = self.app_class.get_meeting_group_name(community)
         return ret_json(data=data)
 
 

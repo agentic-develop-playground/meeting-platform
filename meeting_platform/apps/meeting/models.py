@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2024/8/16 11:16
 # @Author  : Tom_zc
-# @FileName: models.py.py
+# @FileName: models.py
 # @Software: PyCharm
 from django.contrib.auth.models import AbstractUser
 from django.db import models
@@ -74,7 +74,7 @@ class MeetingBiliRecords(models.Model):
         verbose_name_plural = verbose_name
 
     def __str__(self):
-        return "{}".format(self.id)
+        return "{}".format(self.mid)
 
 
 class MeetingObsRecords(models.Model):
@@ -97,7 +97,7 @@ class MeetingObsRecords(models.Model):
         verbose_name_plural = verbose_name
 
     def __str__(self):
-        return "{}".format(self.id)
+        return "{}".format(self.mid)
 
 
 class MeetingCycleDate(models.Model):

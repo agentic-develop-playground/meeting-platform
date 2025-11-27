@@ -308,6 +308,7 @@ class MeetingApp:
             return self.meeting_dao.update_by_id(meeting_id,
                                                  topic=meeting["topic"],
                                                  agenda=meeting["agenda"],
+                                                 email_list=meeting["email_list"],
                                                  is_record=meeting["is_record"],
                                                  is_cycle=meeting["is_cycle"],
                                                  date=meeting["date"],
@@ -371,6 +372,10 @@ class MeetingApp:
         if not meeting:
             logger.error('[MeetingApp/update]meeting id:{} is not exist'.format(meeting_id))
             raise MyValidationError(RetCode.INFORMATION_CHANGE_ERROR)
+        if  meeting.email_list:
+            email_list = meeting.email_list.split(";")
+        else:
+            email_list = []
         meeting = model_to_dict(meeting)
         set_log_thread_local(request, log_key, [meeting["community"], meeting["topic"], meeting_id])
         meeting.update(meeting_data)
@@ -394,7 +399,11 @@ class MeetingApp:
             meeting["date"] = meeting["sub_info"][0]["date"]
             meeting["start"] = meeting["sub_info"][0]["start"]
             meeting["end"] = meeting["sub_info"][0]["end"]
-        start_thread(self._send_message, (meeting, self.update_message_adapter_impl))
+        if meeting.get("is_notify"):
+            if meeting_data.get("email_list") is not None:
+                email_list.extend(meeting_data["email_list"].split(";"))
+            meeting["email_list"] = ",".join(list(set(email_list)))
+            start_thread(self._send_message, (meeting, self.update_message_adapter_impl))
         logger.info('[MeetingApp/update] {}/{}: update meeting which mid is {} and id is {}.'
                     .format(meeting["community"], meeting["platform"], meeting["mid"], meeting["id"]))
         return result
@@ -458,7 +467,8 @@ class MeetingApp:
         result = self._update_sub_dao(meeting)
         # send message
         meeting["check_single_meeting"] = True
-        start_thread(self._send_message, (meeting, self.update_sub_message_adapter_impl))
+        if meeting.get("is_cycle"):
+            start_thread(self._send_message, (meeting, self.update_sub_message_adapter_impl))
         logger.info('[MeetingApp/update] {}/{}: update meeting which mid is {} and id is {}.'
                     .format(meeting["community"], meeting["platform"], meeting["mid"], meeting["id"]))
         return result
@@ -495,6 +505,27 @@ class MeetingApp:
         logger.info('[MeetingApp/delete_sub] {}/{}: delete meeting which mid is {} and id is {}.'
                     .format(meeting["community"], meeting["platform"], meeting["mid"], meeting["id"]))
         return result
+
+    def notify_meeting(self, meeting_id):
+        """send the message and email by meeting_id"""
+        meeting = self.meeting_dao.get_by_id(meeting_id)
+        if not meeting:
+            logger.error('[MeetingApp/notify_meeting]meeting id:{} is not exist'.format(meeting_id))
+            raise MyValidationError(RetCode.INFORMATION_CHANGE_ERROR)
+
+        meeting = model_to_dict(meeting)
+        if meeting.get("is_cycle"):
+            meeting_cycle_obj = self.meeting_cycle_dao.get_by_mid(meeting["mid"])
+            meeting_cycle_info = model_to_dict(meeting_cycle_obj)
+            meeting_cycle_info["cycle_interval"] = meeting_cycle_info["interval"]
+            meeting_cycle_info["cycle_type"] = CycleType.check_value(meeting_cycle_info["cycle_type"])
+            meeting.update(meeting_cycle_info)
+            meeting["sub_info"] = list(self.meeting_cycle_sub_dao.get_by_mid(meeting["mid"]))
+            meeting["cycle_start"] = meeting_cycle_info["start"]
+            meeting["cycle_end"] = meeting_cycle_info["end"]
+            meeting["cycle_start_date"] = meeting_cycle_info["start_date"]
+            meeting["cycle_end_date"] = meeting_cycle_info["end_date"]
+        start_thread(self._send_message, (meeting, self.create_message_adapter_impl))
 
     def get_participants(self, meeting_id):
         """get participants"""
@@ -543,6 +574,10 @@ class MeetingApp:
                 deduplication_date = deduplication_date.union(all_date)
         sort_date = sorted(deduplication_date)
         return list(sort_date)
+
+    def get_meeting_group_name(self, community):
+        queryset = self.meeting_dao.get_meeting_group_name(community)
+        return list(queryset)
 
     @staticmethod
     def get_time_range_meeting(queryset, time_range):

@@ -317,6 +317,7 @@ class SingleMeetingSerializer(ModelSerializer):
     duration = serializers.SerializerMethodField()
     duration_time = serializers.SerializerMethodField()
 
+    is_notify = serializers.BooleanField(required=False)
     cycle_start_date = serializers.CharField(required=False)
     cycle_end_date = serializers.CharField(required=False)
     cycle_start = serializers.CharField(required=False)
@@ -331,14 +332,14 @@ class SingleMeetingSerializer(ModelSerializer):
         fields = ['id', 'sponsor', 'group_name', 'community', 'topic', 'platform', 'date', 'start', 'end',
                   'agenda', 'etherpad', 'email_list', 'mid', 'm_mid', 'is_record', 'duration', 'duration_time',
                   'join_url', 'create_time', 'update_time', 'is_delete', 'is_cycle', 'cycle_start_date',
-                  'cycle_end_date', 'cycle_start', 'cycle_end', 'cycle_type', 'cycle_interval', 'cycle_point']
+                  'cycle_end_date', 'cycle_start', 'cycle_end', 'cycle_type', 'cycle_interval', 'cycle_point',
+                  'is_notify']
         extra_kwargs = {
             'id': {'read_only': True},
             'sponsor': {'read_only': True},
             'group_name': {'read_only': True},
             'community': {'read_only': True},
             'platform': {'read_only': True},
-            'email_list': {'read_only': True},
             'mid': {'read_only': True},
             'm_mid': {'read_only': True},
             'join_url': {'read_only': True},
@@ -369,6 +370,12 @@ class SingleMeetingSerializer(ModelSerializer):
         check_invalid_content(value)
         self._check_content_by_audit(value)
         return value
+
+    def validate_email_list(self, value):
+        """check email_list"""
+        if value:
+            check_email_list(value)
+            return value
 
     def validate_date(self, value):
         """check date"""
@@ -484,7 +491,7 @@ class SingleMeetingSerializer(ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data["email_list"] = to_anonymous_email_list(data.get("email_list"))
+        data["email_list"] = data.get("email_list")
         cycle_date = self.__cycle_date.get_by_mid(instance.mid)
         if cycle_date:
             data["cycle_start_date"] = cycle_date.start_date
@@ -515,13 +522,14 @@ class CycleSubMeetingSerializer(ModelSerializer):
     __cycle_sub_dao = MeetingCycleSubMeetingDao()
     __meeting_dao = MeetingDao()
 
+    is_notify = serializers.BooleanField(required=False)
     is_record = serializers.SerializerMethodField()
     cycle_sub = serializers.SerializerMethodField()
     sponsor = serializers.SerializerMethodField()
 
     class Meta:
         model = MeetingCycleSubMeeting
-        fields = ['mid', 'sub_id', 'date', 'start', 'end', "is_record", "cycle_sub", "sponsor"]
+        fields = ['mid', 'sub_id', 'date', 'start', 'end', "is_record", "cycle_sub", "sponsor", "is_notify"]
         extra_kwargs = {
             'sub_id': {'read_only': True},
             'is_record': {'read_only': True},
@@ -548,6 +556,16 @@ class CycleSubMeetingSerializer(ModelSerializer):
         if meeting_info:
             return meeting_info.sponsor
 
+
+class MeetingGroupNameSerializer(ModelSerializer):
+
+    class Meta:
+        """Meta Meta"""
+        model = Meeting
+        fields = ['group_name']
+        extra_kwargs = {
+            'group_name': {'read_only': True},
+        }
 
 # noinspection PyMethodMayBeStatic
 class TranslateVideoTextSerializer(ModelSerializer):

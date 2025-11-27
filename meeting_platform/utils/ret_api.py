@@ -118,7 +118,7 @@ def capture_my_validation_exception(fn):
             logger.error("capture_my_validation_exception MyNoPermission:{} e:{} {}".format(fn.__name__, e,
                                                                                             traceback.format_exc()))
             raise MyNoPermission(RetCode.STATUS_MEETING_NO_PERMISSION)
-        except ValueError as e:
+        except (ValueError, TypeError) as e:
             logger.error("capture_my_validation_exception ValueError:{} e:{} {}".format(fn.__name__, e,
                                                                                         traceback.format_exc()))
             raise MyNoPermission(RetCode.STATUS_PARAMETER_ERROR)
