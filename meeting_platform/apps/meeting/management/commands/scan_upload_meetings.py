@@ -10,11 +10,12 @@
 """
 
 import os
-import time
 import logging
 import shutil
 import traceback
 from datetime import datetime
+from email.header import Header
+from email.mime.text import MIMEText
 from multiprocessing.dummy import Pool as ThreadPool
 
 from django.conf import settings
@@ -23,6 +24,7 @@ from django.core.management.base import BaseCommand
 from meeting.infrastructure.adapter.bilibili_adapter_impl import BiliAdapterImpl
 from meeting.infrastructure.adapter.meeting_adapter_impl.apis.zoom_api import ZoomApi
 from meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl import MeetingAdapterImpl
+from meeting.infrastructure.adapter.message_adapter_impl.email_adapter_impl import EmailAdapter
 from meeting.infrastructure.adapter.upload_adapter_impl.bili_upload_adapter_impl import BiliUploadAdapterImpl
 from meeting.infrastructure.adapter.upload_adapter_impl.obs_upload_adapter_impl import ObsUploadAdapterImpl
 from meeting.infrastructure.dao.meeting_cache_dao import MeetingCacheDao
@@ -115,13 +117,15 @@ class ScanUploadRecording:
             impl = self.upload_bili_adapter_impl(meeting)
             vid = impl.upload(path, cover_path, return_replay_url=False)
             self.meeting_cache_dao.create(meeting_id=meeting_data["uuid"], vid=vid)
-            while True:
-                all_videos = impl.bili_adapter_impl.search_all_videos()
-                if vid in all_videos:
-                    break
-                logger.info("video:{} not passed".format(vid))
-                time.sleep(180)
-            impl.add_video(vid)
+
+
+def send_failed_email(community, str_msg):
+    email_config = settings.COMMUNITY_SMTP.get(community)
+    adapter = EmailAdapter(community)
+    msg = MIMEText("[scan_upload_meetings] error:{}".format(str_msg), "plain", "utf-8")
+    msg['Subject'] = Header("vllm ascend error", 'utf-8')
+    msg['To'] = email_config["SMTP_MESSAGE_TO"]
+    adapter.send_message(receive_str=email_config["SMTP_MESSAGE_TO"], msg=msg)
 
 
 def work_flow(handle_recording: ScanUploadRecording):
@@ -134,10 +138,12 @@ def work_flow(handle_recording: ScanUploadRecording):
     try:
         path_dict = handle_recording.scan_video()
         if not path_dict:
-            raise Exception("get empty path_lists")
+            logger.info("get empty path_lists")
+            return
         handle_recording.upload_bili(path_dict)
     except Exception as e:
         logger.error("[work_flow] e:{}, traceback:{}".format(e, traceback.format_exc()))
+        send_failed_email(handle_recording.community, str(e))
 
 
 class Command(BaseCommand):

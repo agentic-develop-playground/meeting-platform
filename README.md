@@ -31,8 +31,8 @@ pip3 install -r requirements.txt
 + Set the environment variables for config and vault-config.
 
   ~~~bash
-  export CONFIG_PATH=./config
-  export VAULT_PATH=./vault-config
+  export CONFIG_PATH=./deploy/config/config.yaml
+  export VAULT_PATH=./deploy/config/vault-config
   ~~~
 
 #### 3.Prepare
