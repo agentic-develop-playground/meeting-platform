@@ -78,11 +78,11 @@ class MeetingApp:
                 (datetime.datetime.strptime(cycle_date["end"], '%H:%M') + datetime.timedelta(minutes=30)),
                 '%H:%M')
             # 会议的mid
-            unavailable_host_id, conflict_topic, cur_day_host_id = self.meeting_dao.get_conflict_meeting(community, platform,  cycle_date["date"],
+            unavailable_host_id, conflict_topic, cur_day_host_id = self.meeting_dao.get_conflict_meeting(community, platform, cycle_date["date"],
                                                                                                          start_search, end_search, meeting_id)
             if meeting.get("host_id") is not None and meeting["host_id"] in unavailable_host_id:
                 logger.info('[MeetingApp/_get_and_check_conflict_meetings_by_date] '
-                           '{}/{}: update find the conflict host:{}'.format(
+                            '{}/{}: update find the conflict host:{}'.format(
                     meeting["community"], meeting["platform"], meeting["host_id"]))
                 raise MyValidationError(RetCode.STATUS_MEETING_DATE_CONFLICT, None, ",".join(conflict_topic))
             unavailable_host_ids.extend(unavailable_host_id)
@@ -372,7 +372,7 @@ class MeetingApp:
         if not meeting:
             logger.error('[MeetingApp/update]meeting id:{} is not exist'.format(meeting_id))
             raise MyValidationError(RetCode.INFORMATION_CHANGE_ERROR)
-        if  meeting.email_list:
+        if meeting.email_list:
             email_list = meeting.email_list.split(";")
         else:
             email_list = []
@@ -560,8 +560,9 @@ class MeetingApp:
             date = datetime.datetime.now()
         else:
             date = datetime.datetime.strptime(date, "%Y-%m-%d")
-        start_date = (date - datetime.timedelta(days=31)).strftime('%Y-%m-%d')
-        end_date = (date + datetime.timedelta(days=31)).strftime('%Y-%m-%d')
+        show_date_range = 6 * 7
+        start_date = (date - datetime.timedelta(days=show_date_range)).strftime('%Y-%m-%d')
+        end_date = (date + datetime.timedelta(days=show_date_range)).strftime('%Y-%m-%d')
         queryset_date = queryset.filter(Q(date__gte=start_date, date__lte=end_date) | Q(
             cycle_sub_meeting__date__gte=start_date, cycle_sub_meeting__date__lte=end_date,
         )).distinct().order_by('-date', 'id').values("mid", "date")
