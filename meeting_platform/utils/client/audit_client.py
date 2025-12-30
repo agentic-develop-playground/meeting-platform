@@ -12,7 +12,7 @@ logger = logging.getLogger("log")
 
 
 class AuditClient:
-    def __init__(self, url=None, token=None, audit_type="OFFICIAL_WEBSITE"):
+    def __init__(self, url=None, token=None, audit_type="USER_ACCOUNT"):
         if not url and settings.COMMUNITY_AUDIT is not None:
             self._url = settings.COMMUNITY_AUDIT["URL"]
         else:
