@@ -12,7 +12,7 @@ from rest_framework import status
 from rest_framework.exceptions import ErrorDetail, APIException, ValidationError, AuthenticationFailed
 from django.utils.translation import gettext_lazy as _
 
-from meeting_platform.utils.ret_code import RetCode
+from meeting_platform.utils.ret_code import RetCode, set_current_request, clear_request_language
 
 logger = logging.getLogger('log')
 
@@ -104,11 +104,32 @@ def ret_json(code=200, msg="success", data=None, en_msg=None, **kwargs):
 
 def capture_my_validation_exception(fn):
     """capture my define exception"""
+    def set_language(args):
+        """set language"""
+        request = None
+        if args:
+            # Django视图函数通常第一个参数是request
+            # 或者在类方法中第二个参数是request（self是第一个）
+            for arg in args:
+                if hasattr(arg, 'META') and hasattr(arg, 'method'):
+                    request = arg
+                    break
+            # 如果第一个参数不是request，检查第二个参数
+            if not request and len(args) > 1:
+                second_arg = args[1]
+                if hasattr(second_arg, 'META') and hasattr(second_arg, 'method'):
+                    request = second_arg
+        # 设置语言上下文
+        if request:
+            language = request.META.get('HTTP_ACCEPT_LANGUAGE', 'en')
+            set_current_request(language)
+
 
     @wraps(fn)
     def inner(*args, **kwargs):
         """the inner function"""
         try:
+            set_language(args)
             return fn(*args, **kwargs)
         except (MyValidationError, ValidationError, AuthenticationFailed) as e:
             logger.error("capture_my_validation_exception:{} e:{} {}".format(fn.__name__, e,
@@ -121,7 +142,7 @@ def capture_my_validation_exception(fn):
         except (ValueError, TypeError) as e:
             logger.error("capture_my_validation_exception ValueError:{} e:{} {}".format(fn.__name__, e,
                                                                                         traceback.format_exc()))
-            raise MyNoPermission(RetCode.STATUS_PARAMETER_ERROR)
+            raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
         except MyInnerResult as e:
             logger.error("capture_my_validation_exception MyInnerResult:{} e:{} {}".format(fn.__name__, e,
                                                                                            traceback.format_exc()))
@@ -129,5 +150,6 @@ def capture_my_validation_exception(fn):
         except Exception as e:
             logger.error("exception:{}, traceback:{}".format(e, traceback.format_exc()))
             raise MyInnerError(RetCode.INTERNAL_ERROR)
-
+        finally:
+            clear_request_language()
     return inner

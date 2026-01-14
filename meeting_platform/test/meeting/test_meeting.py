@@ -244,7 +244,7 @@ class CreateMeetingViewTest(TestCommonMeeting):
     def test_create_meeting_failed(self, mock_create):
         self._setup()
         data = copy.deepcopy(self.data)
-        mock_create.side_effect = MyInnerError(RetCode.STATUS_MEETING_FAILED_CREATE)
+        mock_create.side_effect = MyInnerError(RetCode.INTERNAL_ERROR)
         ret = self.client.post(self.url, data)
         self.assertEqual(ret.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
         self._teardown()

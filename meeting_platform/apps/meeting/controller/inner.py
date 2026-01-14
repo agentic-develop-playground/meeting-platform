@@ -176,6 +176,7 @@ class NotifyMeetingView(RetrieveAPIView, GenericAPIView):
     authentication_classes = (BasicAuthentication,)
     app_class = MeetingApp()
 
+    @capture_my_validation_exception
     def retrieve(self, *args, **kwargs):
         data = self.app_class.notify_meeting(kwargs.get('id'))
         return ret_json(data=data)
@@ -199,6 +200,7 @@ class MeetingPlatformView(MyListModelMixin, GenericAPIView):
     authentication_classes = (BasicAuthentication,)
     app_class = MeetingApp()
 
+    @capture_my_validation_exception
     def get(self, request):
         community = request.query_params.get("community")
         data = self.app_class.get_meeting_platform(community)

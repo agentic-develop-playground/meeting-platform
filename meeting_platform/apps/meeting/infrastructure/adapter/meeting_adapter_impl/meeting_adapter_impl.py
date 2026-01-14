@@ -238,7 +238,7 @@ class MeetingAdapterImpl(MeetingAdapter):
         if not str(status).startswith("20"):
             logger.error("[MeetingAdapterImpl/create] {}/{}: Failed to create meeting, and code is {}"
                          .format(meeting["community"], meeting["platform"], str(status)))
-            raise MyInnerError(RetCode.STATUS_MEETING_FAILED_CREATE)
+            raise MyInnerError(RetCode.INTERNAL_ERROR)
         return resp
 
     def update(self, meeting):
@@ -247,7 +247,7 @@ class MeetingAdapterImpl(MeetingAdapter):
         if not str(status).startswith("20"):
             logger.error('[MeetingAdapterImpl/update] {}/{}: Failed to update meeting {}'
                          .format(meeting["community"], meeting["platform"], str(status)))
-            raise MyInnerError(RetCode.STATUS_MEETING_FAILED_UPDATE)
+            raise MyInnerError(RetCode.INTERNAL_ERROR)
         return resp
 
     def update_sub(self, meeting):
@@ -256,7 +256,7 @@ class MeetingAdapterImpl(MeetingAdapter):
         if not str(status).startswith("20"):
             logger.error('[MeetingAdapterImpl/update_sub] {}/{}: Failed to update meeting {}'
                          .format(meeting["community"], meeting["platform"], str(status)))
-            raise MyInnerError(RetCode.STATUS_MEETING_FAILED_UPDATE)
+            raise MyInnerError(RetCode.INTERNAL_ERROR)
 
     def delete(self, meeting):
         action = self.meeting_action.get_delete_action(meeting["platform"], meeting)
@@ -264,7 +264,7 @@ class MeetingAdapterImpl(MeetingAdapter):
         if not str(status).startswith("20") and status != 404:
             logger.error('[MeetingAdapterImpl/delete] {}/{}: Failed to delete meeting {}'
                          .format(meeting["community"], meeting["platform"], str(status)))
-            raise MyInnerError(RetCode.STATUS_FAILED)
+            raise MyInnerError(RetCode.INTERNAL_ERROR)
 
     def delete_sub(self, meeting):
         action = self.meeting_action.get_delete_sub_action(meeting["platform"], meeting)
@@ -272,7 +272,7 @@ class MeetingAdapterImpl(MeetingAdapter):
         if not str(status).startswith("20") and status != 404:
             logger.error('[MeetingAdapterImpl/delete_sub] {}/{}: Failed to update meeting {}'
                          .format(meeting["community"], meeting["platform"], str(status)))
-            raise MyInnerError(RetCode.STATUS_MEETING_FAILED_UPDATE)
+            raise MyInnerError(RetCode.INTERNAL_ERROR)
 
     def get_participants(self, meeting):
         action = self.meeting_action.get_participants_action(meeting["platform"], meeting)
@@ -280,7 +280,7 @@ class MeetingAdapterImpl(MeetingAdapter):
         if not str(status).startswith("20"):
             logger.error('[MeetingAdapterImpl/get_participants] {}/{}: Failed to get participants {}/{}'
                          .format(meeting["community"], meeting["platform"], str(status), data))
-            raise MyInnerError(RetCode.STATUS_FAILED)
+            raise MyInnerError(RetCode.INTERNAL_ERROR)
         return data
 
     def get_video(self, meeting):
