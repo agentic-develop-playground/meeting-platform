@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2025/6/6 10:05
-# @Author  : Tom_zc
-# @FileName: scan_upload_meetings.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 """
 1.扫描第三方会议的视频
 2.上传到B站

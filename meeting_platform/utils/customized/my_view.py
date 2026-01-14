@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2024/6/17 19:43
-# @Author  : Tom_zc
-# @FileName: my_view.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 from rest_framework import mixins
 from rest_framework.generics import RetrieveAPIView, GenericAPIView
 

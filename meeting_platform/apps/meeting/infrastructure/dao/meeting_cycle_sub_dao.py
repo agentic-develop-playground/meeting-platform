@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2025/7/23 15:18
-# @Author  : Tom_zc
-# @FileName: meeting_cycle_sub_dao.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 
 
 from meeting.models import MeetingCycleSubMeeting

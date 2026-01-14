@@ -1,8 +1,6 @@
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2023/10/13 11:47
-# @Author  : Tom_zc
-# @FileName: common.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 import secrets
 import shutil
 import string

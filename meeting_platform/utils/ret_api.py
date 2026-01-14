@@ -1,8 +1,6 @@
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2023/10/26 15:39
-# @Author  : Tom_zc
-# @FileName: ret_api.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 import logging
 import traceback
 from functools import wraps

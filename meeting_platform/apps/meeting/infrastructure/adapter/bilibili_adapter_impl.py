@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2024/7/11 12:18
-# @Author  : Tom_zc
-# @FileName: bilibili_client.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 from django.conf import settings
 
 from meeting.domain.repository.bilibili_adapter import BiliAdapter

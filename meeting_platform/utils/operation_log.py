@@ -1,8 +1,6 @@
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2023/10/11 16:09
-# @Author  : Tom_zc
-# @FileName: operation_log.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 import json
 from logging import getLogger
 from functools import wraps

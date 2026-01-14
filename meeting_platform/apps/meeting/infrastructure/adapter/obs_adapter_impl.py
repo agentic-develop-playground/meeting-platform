@@ -1,8 +1,6 @@
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2023/11/22 20:33
-# @Author  : Tom_zc
-# @FileName: obs_client.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 from obs import ObsClient
 
 from meeting.domain.repository.obs_adapter import ObsAdapter

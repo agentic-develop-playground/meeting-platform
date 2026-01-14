@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2024/8/26 16:21
-# @Author  : Tom_zc
-# @FileName: bili_client.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 from django.conf import settings
 
 from bilibili_api import video_uploader, sync, Credential, video

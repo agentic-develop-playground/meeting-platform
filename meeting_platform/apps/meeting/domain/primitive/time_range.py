@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2025/3/30 11:25
-# @Author  : Tom_zc
-# @FileName: time_range.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 import logging
 
 from meeting_platform.utils.base_enum import EnumBase

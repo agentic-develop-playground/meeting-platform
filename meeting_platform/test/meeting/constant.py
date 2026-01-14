@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2024/8/1 11:08
-# @Author  : Tom_zc
-# @FileName: constant.py.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 xss_script = """<img src="x" οnerrοr=alert(1)>"""
 
 html_text = "https://app-meeting-server.com"

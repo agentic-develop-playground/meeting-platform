@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2024/6/25 17:58
-# @Author  : Tom_zc
-# @FileName: my_exception.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 
 from django.http import Http404
 from django.core.exceptions import PermissionDenied

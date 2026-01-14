@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2024/8/27 11:50
-# @Author  : Tom_zc
-# @FileName: upload_status.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 from meeting_platform.utils.base_enum import EnumBase
 
 
