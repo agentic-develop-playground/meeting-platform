@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2025/4/22 15:56
-# @Author  : Tom_zc
-# @FileName: audit_client.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 import logging
 import requests
 from django.conf import settings
