@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2024/8/26 15:04
-# @Author  : Tom_zc
-# @FileName: bili_upload_adapter_impl.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 import logging
 from meeting.domain.repository.upload_adapter import UploadAdapter
 from meeting.infrastructure.adapter.bilibili_adapter_impl import BiliAdapterImpl

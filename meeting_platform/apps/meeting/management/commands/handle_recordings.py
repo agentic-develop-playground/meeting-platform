@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2024/8/26 11:16
-# @Author  : Tom_zc
-# @FileName: handle_recordings.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 import os
 import shutil
 import logging

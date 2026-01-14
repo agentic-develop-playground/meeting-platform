@@ -1,8 +1,6 @@
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2023/11/4 8:48
-# @Author  : Tom_zc
-# @FileName: my_pagination.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 
 from rest_framework import pagination
 from rest_framework.response import Response

@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2025/6/30 20:51
-# @Author  : Tom_zc
-# @FileName: meeting_records_obs_dao.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 
 
 from meeting.models import MeetingObsRecords

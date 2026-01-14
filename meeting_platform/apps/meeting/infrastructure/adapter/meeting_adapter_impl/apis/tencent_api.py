@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2024/6/19 16:36
-# @Author  : Tom_zc
-# @FileName: tencent_api.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 import base64
 import hashlib
 import hmac

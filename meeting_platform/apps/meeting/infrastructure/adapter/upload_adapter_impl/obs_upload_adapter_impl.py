@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2024/8/26 15:03
-# @Author  : Tom_zc
-# @FileName: obs_upload_adapter_impl.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 import os
 import datetime
 import logging

@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2025/6/19 17:19
-# @Author  : Tom_zc
-# @FileName: meeting_cache_dao.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 
 from meeting.models import MeetingCache
 

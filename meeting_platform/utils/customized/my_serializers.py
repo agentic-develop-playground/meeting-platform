@@ -1,8 +1,6 @@
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2024/6/17 18:44
-# @Author  : Tom_zc
-# @FileName: my_serializers.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 
 from rest_framework.serializers import Serializer
 

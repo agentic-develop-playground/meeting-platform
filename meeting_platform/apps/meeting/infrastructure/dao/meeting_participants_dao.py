@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2025/3/18 21:09
-# @Author  : Tom_zc
-# @FileName: meeting_participants_dao.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 
 from meeting.models import MeetingParticipants
 

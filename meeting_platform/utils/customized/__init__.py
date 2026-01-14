@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2024/8/22 17:22
-# @Author  : Tom_zc
-# @FileName: __init__.py.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.

@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2025/8/15 10:54
-# @Author  : Tom_zc
-# @FileName: core_operators.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 import datetime
 import calendar
 import logging

@@ -1,8 +1,6 @@
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2023/11/28 15:22
-# @Author  : Tom_zc
-# @FileName: my_middleware.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 import logging
 from django.http.response import HttpResponseBase
 from django.utils.deprecation import MiddlewareMixin

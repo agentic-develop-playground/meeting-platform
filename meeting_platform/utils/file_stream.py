@@ -1,8 +1,6 @@
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2023/10/25 10:14
-# @Author  : Tom_zc
-# @FileName: file_stream.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 import stat
 import os
 import requests

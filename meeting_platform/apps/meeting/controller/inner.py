@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2024/8/16 14:11
-# @Author  : Tom_zc
-# @FileName: inner.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 from copy import deepcopy
 
 from django.db.models import Q

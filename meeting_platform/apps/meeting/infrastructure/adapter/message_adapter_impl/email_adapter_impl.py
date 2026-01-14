@@ -1,8 +1,6 @@
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2024/6/17 18:49
-# @Author  : Tom_zc
-# @FileName: email_client.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 import datetime
 import icalendar
 import pytz

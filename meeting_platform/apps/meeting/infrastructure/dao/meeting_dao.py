@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2024/8/16 14:45
-# @Author  : Tom_zc
-# @FileName: meeting_adapter.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 from meeting.models import Meeting
 from django.db.models import Q
 

@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2024/7/15 10:53
-# @Author  : Tom_zc
-# @FileName: kafka_client.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 import datetime
 import logging
 from abc import ABC

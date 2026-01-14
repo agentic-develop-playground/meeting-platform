@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2024/7/10 14:30
-# @Author  : Tom_zc
-# @FileName: libs.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 import logging
 
 from meeting_platform.utils.ret_api import MyInnerError

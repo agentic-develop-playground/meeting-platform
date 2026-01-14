@@ -1,8 +1,6 @@
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2023/10/25 11:12
-# @Author  : Tom_zc
-# @FileName: check_params.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 import datetime
 import re
 import copy

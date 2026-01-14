@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2025/7/1 14:15
-# @Author  : Tom_zc
-# @FileName: obs_records_app.py
-# @Software: PyCharm
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 from meeting.domain.primitive.upload_status import UploadStatus
 from meeting.infrastructure.dao.meeting_dao import MeetingDao
 from meeting.infrastructure.dao.meeting_records_obs_dao import MeetingRecordsObsDao
