@@ -5,6 +5,7 @@
 import logging
 import traceback
 import datetime
+from enum import Enum
 from multiprocessing.dummy import Pool as ThreadPool
 
 from django.conf import settings
@@ -17,6 +18,20 @@ from meeting.infrastructure.dao import meeting_dao, meeting_participants_dao, me
 logger = logging.getLogger("log")
 
 
+class MeetingSchedulePlan(Enum):
+    WINDOWS = "windows"
+    DEFAULT = "point"
+
+    @classmethod
+    def from_settings(cls):
+        """从settings获取当前计划类型"""
+        schedule_plan = settings.HANDLE_MEETING_SCHEDULE_PLAN.lower()
+        for plan in cls:
+            if plan.value == schedule_plan:
+                return plan
+        return cls.DEFAULT
+
+
 class HandleMeeting:
     meeting_dao = meeting_dao.MeetingDao
     _meeting_participants_dao = meeting_participants_dao.MeetingParticipantsDao
@@ -27,31 +42,37 @@ class HandleMeeting:
         self.community = community
 
     @staticmethod
-    def _get_valid_query_range():
-        cur_date = datetime.datetime.now()
-        start_date = (cur_date - datetime.timedelta(days=settings.QUERY_MEETING_DATE)).strftime('%Y-%m-%d')
-        end_date = cur_date.strftime('%Y-%m-%d')
-        hour = f"{cur_date.hour:02}"
-        minute = f"{cur_date.minute:02}"
-        return start_date, end_date, f"{hour}:{minute}"
-
-    def _get_over_meeting(self):
-        start_date, end_date, end_time = self._get_valid_query_range()
-        return self.meeting_dao.get_meeting_by_date(self.community, start_date, end_date, end_time)
-
-    @staticmethod
-    def _get_today_end_meeting():
+    def _get_windows_meeting():
         cur_date = datetime.datetime.now()
         today_date = cur_date.strftime('%Y-%m-%d')
         start_time = (cur_date - datetime.timedelta(minutes=2 * settings.FORCE_MEETING_END_TIME)).strftime("%H:%M")
         end_time = (cur_date - datetime.timedelta(minutes=settings.FORCE_MEETING_END_TIME)).strftime("%H:%M")
         return today_date, start_time, end_time
 
-    def _get_cur_day_meeting(self):
+    @staticmethod
+    def _get_point_meeting():
+        cur_date = datetime.datetime.now()
+        start_date = (cur_date - datetime.timedelta(hours=settings.FORCE_MEETING_END_POINT)).strftime("%H:%M")
+        end_date = cur_date.strftime("%H:%M")
+        return start_date, end_date
+
+    def _get_over_meeting_by_windows(self):
+        """会议30分钟后统计数据和自动结束会议"""
         # fix: 当天的mid是否存在重复的可能性？ 一般是不可能，但保险的方式是：结束只执行一次：设置定时器的时间为每15分钟，查询结束的时间是否在结束后15分钟~30分钟之内。
         # resolve: cur_datetime-30 < end_time  < cur_datetime-15
-        today_date, start_time, end_time = self._get_today_end_meeting()
-        return self.meeting_dao.get_cur_date_meeting(self.community, today_date, start_time, end_time)
+        today_date, start_time, end_time = self._get_windows_meeting()
+        return self.meeting_dao.get_windows_meeting(self.community, today_date, start_time, end_time)
+
+    def _get_over_meeting_by_point(self):
+        """每天凌晨统计数据和强制结束会议"""
+        start_date, end_date = self._get_point_meeting()
+        return self.meeting_dao.get_point_meeting(self.community, start_date, end_date)
+
+    def _get_cur_day_meeting(self):
+        if MeetingSchedulePlan.from_settings() == MeetingSchedulePlan.WINDOWS:
+            return self._get_over_meeting_by_windows()
+        else:
+            return self._get_over_meeting_by_point()
 
     def refresh_meeting_participants(self):
         meetings = self._get_cur_day_meeting()
