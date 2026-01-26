@@ -74,10 +74,16 @@ class MeetingDao:
                                                                          sequence=sequence)
 
     @classmethod
-    def get_cur_date_meeting(cls, community, cur_date, start_time, end_time):
+    def get_windows_meeting(cls, community, cur_date, start_time, end_time):
         query_set = cls.dao.objects.filter(community=community, is_delete=0)
         return query_set.filter(Q(cycle_sub_meeting__date=cur_date, cycle_sub_meeting__end__gte= start_time, cycle_sub_meeting__end__lt=end_time) |
                                 Q(date=cur_date, end__gte=start_time, end__lt=end_time)).all()
+
+    @classmethod
+    def get_point_meeting(cls, community, start_date, end_date):
+        return cls.dao.objects.filter(community=community, is_delete=0). \
+            filter(Q(date__gt=start_date, date__lt=end_date) | Q(cycle_sub_meeting__date__gt=start_date,
+                                                                 cycle_sub_meeting__date__lt=end_date)).all()
 
     @classmethod
     def get_meeting_by_date(cls, community, start_date, end_date, end_time):

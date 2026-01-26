@@ -79,9 +79,9 @@ class MeetingApp:
                                                                                                          start_search, end_search, meeting_id)
             if meeting.get("host_id") is not None and meeting["host_id"] in unavailable_host_id:
                 logger.info('[MeetingApp/_get_and_check_conflict_meetings_by_date] '
-                            '{}/{}: update find the conflict host:{}'.format(
-                    meeting["community"], meeting["platform"], meeting["host_id"]))
-                raise MyValidationError(RetCode.STATUS_MEETING_DATE_CONFLICT, None, ",".join(conflict_topic))
+                            '{}/{}: update find the conflict host:{}, and conflict with: {}'.format(
+                    meeting["community"], meeting["platform"], meeting["host_id"], ",".join(list(set(conflict_topics)))))
+                raise MyValidationError(RetCode.STATUS_MEETING_DATE_CONFLICT)
             unavailable_host_ids.extend(unavailable_host_id)
             conflict_topics.extend(conflict_topic)
             cur_day_host_ids.extend(cur_day_host_id)
@@ -92,8 +92,9 @@ class MeetingApp:
         available_host_id = list(set(host_list) - set(unavailable_host_ids))
         if len(available_host_id) == 0:
             logger.info('[MeetingApp/_get_and_check_conflict_meetings_by_date] '
-                        '{}/{}: no available host'.format(meeting["community"], meeting["platform"]))
-            raise MyValidationError(RetCode.STATUS_MEETING_DATE_CONFLICT, None, ",".join(list(set(conflict_topics))))
+                        '{}/{}: no available host, and conflict with:{}'.format(
+                meeting["community"], meeting["platform"], ",".join(list(set(conflict_topics)))))
+            raise MyValidationError(RetCode.STATUS_MEETING_DATE_CONFLICT)
         # 排除当天有会议的host_ids, 优先选择当天没有会议的
         preferred_choice = list(set(available_host_id) - set(cur_day_host_ids))
         if len(preferred_choice) > 0:
