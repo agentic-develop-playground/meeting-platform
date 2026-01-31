@@ -112,6 +112,7 @@ class Command(BaseCommand):
             new_meeting['sequence'] = 0  # Default value for new field
             new_meeting['update_time'] = None
             new_meeting['is_cycle'] = 0
+            new_meeting['is_record'] = 0
             res.append(new_meeting)
             logger.info(f'Imported meeting data: {new_meeting}')
         Meeting.objects.bulk_create([Meeting(**data) for data in res])
