@@ -110,7 +110,7 @@ class Command(BaseCommand):
             for old_field, new_field in field_map.items():
                 new_meeting[new_field] = getattr(old_meeting, old_field)
             new_meeting['sequence'] = 0  # Default value for new field
-            new_meeting['updated_time'] = None
+            new_meeting['update_time'] = None
             new_meeting['is_cycle'] = 0
             res.append(new_meeting)
             logger.info(f'Imported meeting data: {new_meeting}')
