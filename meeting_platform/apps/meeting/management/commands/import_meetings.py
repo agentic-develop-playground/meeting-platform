@@ -113,6 +113,7 @@ class Command(BaseCommand):
             new_meeting['update_time'] = None
             new_meeting['is_cycle'] = 0
             new_meeting['is_record'] = 0
+            new_meeting['community'] = 'MindSpore'
             res.append(new_meeting)
             logger.info(f'Imported meeting data: {new_meeting}')
         Meeting.objects.bulk_create([Meeting(**data) for data in res])
@@ -154,5 +155,5 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self._migrate_meetings()
-        self._migrate_records()
+        # self._migrate_records()
     
