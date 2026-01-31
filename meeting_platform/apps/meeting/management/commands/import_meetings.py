@@ -89,7 +89,6 @@ class Command(BaseCommand):
             'date': 'date',
             'start': 'start',
             'end': 'end',
-            'duration': 'duration',
             'agenda': 'agenda',
             'etherpad': 'etherpad',
             'emaillist': 'email_list',
@@ -99,12 +98,6 @@ class Command(BaseCommand):
             'join_url': 'join_url',
             'create_time': 'create_time',
             'is_delete': 'is_delete',
-            'group_type': 'group_type',
-            'city': 'city',
-            'user_id': 'user_id',
-            'group_id': 'group_id',
-            'meeting_type': 'meeting_type',
-            'replay_url': 'replay_url',
             'mplatform': 'platform',
             'record': 'is_record',
         }
@@ -118,7 +111,7 @@ class Command(BaseCommand):
                 new_meeting[new_field] = getattr(old_meeting, old_field)
             new_meeting['sequence'] = 0  # Default value for new field
             new_meeting['updated_time'] = None
-            new_meeting['sponsor'] = self._get_hid_by_gitcode(old_meeting.sponsor)
+            new_meeting['is_cycle'] = 0
             res.append(new_meeting)
             logger.info(f'Imported meeting data: {new_meeting}')
         Meeting.objects.bulk_create([Meeting(**data) for data in res])
@@ -160,5 +153,5 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self._migrate_meetings()
-        # self.migrate_records()
+        self._migrate_records()
     
