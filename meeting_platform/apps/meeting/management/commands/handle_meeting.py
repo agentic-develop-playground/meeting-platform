@@ -17,6 +17,8 @@ from meeting.infrastructure.dao import meeting_dao, meeting_participants_dao, me
 
 logger = logging.getLogger("log")
 
+COMMUNITY_SHUTDOWN_IMMEDIATELY = ['boostkit', 'mindspore', 'openeuler', 'openfuyao', 'opengauss', 'openjiuwen', 'openubmc', 'unifiedbus']
+COMMUNITY_SHUTDOWN_DAILY = ['ascend', 'cann']
 
 class MeetingSchedulePlan(Enum):
     WINDOWS = "windows"
@@ -120,11 +122,19 @@ def work_flow(handle_meeting: HandleMeeting):
 
 
 class Command(BaseCommand):
+    @staticmethod
+    def __is_near_midnight(tolerance=3):
+        """判断当前时间是否在0点前后tolerance分钟内"""
+        now = datetime.datetime.now()
+        midnight = datetime.datetime(now.year, now.month, now.day, 0, 0, 0)
+        delta = datetime.timedelta(minutes=tolerance)
+        return (midnight - delta) <= now <= (midnight + delta)
+
     def handle(self, *args, **options):
         logger.info('-' * 20 + ' start to handle meeting' + '-' * 20)
-        logger.info('[handle] find community: {}'.format(",".join(settings.COMMUNITY_SUPPORT)))
         try:
-            handler_recording_communities = [HandleMeeting(i) for i in settings.COMMUNITY_SUPPORT]
+            handler_recording_communities = [HandleMeeting(i) for i in settings.COMMUNITY_SUPPORT if i in COMMUNITY_SHUTDOWN_IMMEDIATELY]
+            logger.info('[handle] find community: {}, shutdown meetings is over immediately'.format(handler_recording_communities))
             pool = ThreadPool()
             pool.map(work_flow, handler_recording_communities)
             pool.close()
@@ -132,3 +142,18 @@ class Command(BaseCommand):
             logger.info('-' * 20 + 'All done' + '-' * 20)
         except Exception as e:
             logger.error("[handle_recordings/handle] err:{}, traceback:{}".format(str(e), traceback.format_exc()))
+
+        # 只有当日晚12点才执行，判断当前时间在12点整前后3分钟
+        if not self.__is_near_midnight():
+            return
+        try:
+            handler_recording_communities = [HandleMeeting(i) for i in settings.COMMUNITY_SUPPORT if i in COMMUNITY_SHUTDOWN_DAILY]
+            logger.info('[handle] find community: {}, shutdown meetings is held today'.format(handler_recording_communities))
+            pool = ThreadPool()
+            pool.map(work_flow, handler_recording_communities)
+            pool.close()
+            pool.join()
+            logger.info('-' * 20 + 'All done' + '-' * 20)
+        except Exception as e:
+            logger.error("[handle_recordings/handle] err:{}, traceback:{}".format(str(e), traceback.format_exc()))
+
