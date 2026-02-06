@@ -1,0 +1,17 @@
+Dear {{sig_name}} Members,
+
+{{sponsor}} has scheduled a meeting for {{sig_name}}.
+
+Meeting Details:
+- Topic: {{topic}}
+- Start Time: {{start_time}}
+- Platform: {{platform}}
+- Join URL: {{join_url}}
+- Etherpad: {{etherpad}}
+
+Community Portal:
+- Chinese: {{portal_zh}}
+- English: {{portal_en}}
+
+Best regards,
+{{sig_name}} Conference Team
