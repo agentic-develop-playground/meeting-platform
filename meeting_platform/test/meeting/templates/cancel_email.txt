@@ -1,0 +1,10 @@
+Dear {{sig_name}} Members,
+
+The following meeting has been cancelled:
+
+Meeting Details:
+- Platform: {{platform}}
+- Scheduled Time: {{start_time}}
+
+Best regards,
+{{sig_name}} Conference Team
