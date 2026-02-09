@@ -46,7 +46,7 @@ python3 manage.py migrate
 + Do test
 
   ~~~bash
-  python3 manage.py test
+  python3 -m coverage manage.py test --settings=meeting_platform.settings.test
   ~~~
 
   ![1732347032988](/docs/assets/1732347032988.png)
@@ -54,7 +54,7 @@ python3 manage.py migrate
 + View code test coverage
 
   ~~~bash
-  python3 -m coverage run manage.py test
+  python3 -m coverage run manage.py test --settings=meeting_platform.settings.test
   coverage report
   ~~~
 
