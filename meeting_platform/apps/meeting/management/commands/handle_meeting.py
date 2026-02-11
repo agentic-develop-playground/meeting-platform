@@ -52,8 +52,8 @@ class HandleMeeting:
     @staticmethod
     def _get_point_meeting():
         cur_date = datetime.datetime.now()
-        start_date = (cur_date - datetime.timedelta(hours=settings.FORCE_MEETING_END_POINT)).strftime("%H:%M")
-        end_date = cur_date.strftime("%H:%M")
+        start_date = (cur_date - datetime.timedelta(hours=settings.FORCE_MEETING_END_POINT)).strftime("%Y-%m-%d")
+        end_date = cur_date.strftime("%Y-%m-%d")
         return start_date, end_date
 
     def _get_over_meeting_by_windows(self):
