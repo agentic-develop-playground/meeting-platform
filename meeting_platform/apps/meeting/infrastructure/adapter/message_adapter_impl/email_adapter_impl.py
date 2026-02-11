@@ -98,7 +98,7 @@ class EmailTemplate:
                                                                                       self.end_date,
                                                                                       self.cycle_interval,
                                                                                       self.cycle_type.des,
-                                                                                      self.__convert_point(self.cycle_type.des, self.cycle_point),
+                                                                                      self.cycle_point,
                                                                                       self.cycle_start,
                                                                                       self.cycle_end)
         self.action = meeting.get("action")
