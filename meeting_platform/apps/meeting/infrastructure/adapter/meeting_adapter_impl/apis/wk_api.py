@@ -525,11 +525,9 @@ class WkApi(MeetingAdapter):
             startTime = (datetime.datetime.strptime(recording['startTime'], '%Y-%m-%d %H:%M') +
                          datetime.timedelta(hours=8)).strftime('%Y-%m-%d %H:%M')
             rcdTime = recording['rcdTime']
-            endTime = (datetime.datetime.strptime(startTime, '%Y-%m-%d %H:%M') +
-                       datetime.timedelta(seconds=rcdTime)).strftime('%Y-%m-%d %H:%M')
-            if endTime < start_time or startTime > end_time:
+            if startTime > end_time:
                 logger.info("find the fault mid:{}/{},and actually:{}/{} plan:{}/{}".format(
-                    self.community, mid, startTime, endTime, start_time, end_time))
+                    self.community, mid, startTime, rcdTime, start_time, end_time))
                 continue
             start_order_set.add(startTime)
         for st in sorted(list(start_order_set)):
@@ -537,13 +535,11 @@ class WkApi(MeetingAdapter):
                 if recording['confID'] != mid:
                     continue
                 startTime = (datetime.datetime.strptime(recording['startTime'], '%Y-%m-%d %H:%M') +
-                             datetime.timedelta(hours=8)).strftime('%Y-%m-%d %H:%M')
+                            datetime.timedelta(hours=8)).strftime('%Y-%m-%d %H:%M')
                 rcdTime = recording['rcdTime']
-                endTime = (datetime.datetime.strptime(startTime, '%Y-%m-%d %H:%M') +
-                           datetime.timedelta(seconds=rcdTime)).strftime('%Y-%m-%d %H:%M')
-                if endTime < start_time or startTime > end_time:
+                if startTime > end_time:
                     logger.info("find the fault again mid:{}/{},and actually:{}/{} plan:{}/{}".format(
-                        self.community, mid, startTime, endTime, start_time, end_time))
+                        self.community, mid, startTime, rcdTime, start_time, end_time))
                     continue
                 if startTime == st:
                     available_recordings.append(recording)
