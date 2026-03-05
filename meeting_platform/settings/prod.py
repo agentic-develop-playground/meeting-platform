@@ -170,38 +170,6 @@ DATABASES = {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
             'charset': "utf8mb4"
         }
-    },
-    # 'mindspore_meetings_v2': {
-    #     'ENGINE': 'django.db.backends.mysql',
-    #     'NAME': VAULT_CONF.get("MINDSPORE_DB", {}).get("NAME", VAULT_CONF["DB"]["NAME"]),
-    #     'USER': VAULT_CONF.get("MINDSPORE_DB", {}).get("USER", VAULT_CONF["DB"]["USER"]),
-    #     'PASSWORD': VAULT_CONF.get("MINDSPORE_DB", {}).get("PASSWORD", VAULT_CONF["DB"]["PASSWORD"]),
-    #     'HOST': VAULT_CONF.get("MINDSPORE_DB", {}).get("HOST", VAULT_CONF["DB"]["HOST"]),
-    #     'PORT': VAULT_CONF.get("MINDSPORE_DB", {}).get("PORT", VAULT_CONF["DB"]["PORT"]),
-    #     'OPTIONS': {
-    #         'ssl': {
-    #             'ssl_version': ssl.PROTOCOL_TLSv1_2,
-    #             'key': MYSQL_TLS_PEM_CONTENT
-    #         },
-    #         'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-    #         'charset': "utf8mb4"
-    #     }
-    # },
-    'openeuler_meetings': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': VAULT_CONF.get("OPENEULER_DB", {}).get("NAME", VAULT_CONF["DB"]["NAME"]),
-        'USER': VAULT_CONF.get("OPENEULER_DB", {}).get("USER", VAULT_CONF["DB"]["USER"]),
-        'PASSWORD': VAULT_CONF.get("OPENEULER_DB", {}).get("PASSWORD", VAULT_CONF["DB"]["PASSWORD"]),
-        'HOST': VAULT_CONF.get("OPENEULER_DB", {}).get("HOST", VAULT_CONF["DB"]["HOST"]),
-        'PORT': VAULT_CONF.get("OPENEULER_DB", {}).get("PORT", VAULT_CONF["DB"]["PORT"]),
-        'OPTIONS': {
-            'ssl': {
-                'ssl_version': ssl.PROTOCOL_TLSv1_2,
-                'key': MYSQL_TLS_PEM_CONTENT
-            },
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-            'charset': "utf8mb4"
-        }
     }
 }
 

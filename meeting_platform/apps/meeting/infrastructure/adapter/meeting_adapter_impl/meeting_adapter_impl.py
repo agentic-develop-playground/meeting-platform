@@ -240,7 +240,6 @@ class MeetingAdapterImpl(MeetingAdapter):
 
     def update(self, meeting):
         action = self.meeting_action.get_update_action(meeting["platform"], meeting)
-        logger.info(f"meeting : {meeting}, action : {action}")
         status, resp = handler_meeting(meeting["community"], meeting["platform"], meeting["host_id"], action)
         if not str(status).startswith("20"):
             logger.error('[MeetingAdapterImpl/update] {}/{}: Failed to update meeting {}'
