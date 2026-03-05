@@ -98,10 +98,28 @@ class EmailTemplate:
                                                                                       self.end_date,
                                                                                       self.cycle_interval,
                                                                                       self.cycle_type.des,
-                                                                                      self.cycle_point,
+                                                                                      self.__convert_point(self.cycle_type.des, self.cycle_point),
                                                                                       self.cycle_start,
                                                                                       self.cycle_end)
         self.action = meeting.get("action")
+
+    @staticmethod
+    def __convert_point(cycle_type_des, cycle_point):
+        if isinstance(cycle_point, str):
+            cycle_list = cycle_point.replace('[','').replace(']','').split(',') if isinstance(cycle_point, str) else cycle_point
+        elif isinstance(cycle_point, list):
+            cycle_list = cycle_point
+        else:
+            raise ValueError("invalid cycle point type: {}".format(type(cycle_point)))
+        if cycle_type_des == CycleType.DAY.des:
+            return ""
+        elif cycle_type_des == CycleType.Week.des:
+            day_map = {'0': 'Sun', '1': 'Mon', '2': 'Tue', '3': 'Wed', '4': 'Thu', '5': 'Fri', '6': 'Sat'}
+            return ','.join([day_map[str(p)] for p in cycle_list])
+        elif cycle_type_des == CycleType.Month.des:
+            return 'day ' + ','.join([str(p) for p in cycle_list])
+        else:
+            raise ValueError("invalid cycle type")
 
     # noinspection DuplicatedCode
     def get_create_meeting_template_by_meetings_info(self):
