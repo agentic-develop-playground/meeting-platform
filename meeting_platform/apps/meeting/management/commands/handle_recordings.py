@@ -8,6 +8,7 @@ import time
 import datetime
 import traceback
 from collections import defaultdict
+from urllib.parse import quote
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
@@ -115,6 +116,11 @@ class HandleRecording:
         end_date = cur_date.strftime('%Y-%m-%d')
         return start_date, end_date
 
+    @staticmethod
+    def _manual_url_encode(text, encoding='utf-8'):
+        """只编码中文字符和特殊字符，保留字母、数字、-、_、.、~ 不编码"""
+        return quote(text, encoding=encoding)
+
     def upload_obs(self):
         """upload all: get video --> upload obs"""
         cache_path = defaultdict(dict)
@@ -122,6 +128,9 @@ class HandleRecording:
         start_date, end_date = self._get_valid_query_range()
         meeting_infos = self.meeting_dao.get_meeting_by_obs_records(self.community, list(meeting_obs_records),
                                                                     start_date, end_date)
+        # 适配中文场景，切换为url编码
+        for meeting_obj in meeting_infos:
+            meeting_obj.group_name = self._manual_url_encode(meeting_obj.group_name)
         logger.info("[HandleRecording/upload_obs]: Find need to upload mid({}/{})".format(len(meeting_infos), self.community))
         for meeting_obj in meeting_infos:
             try:
