@@ -11,7 +11,7 @@
 
 会议链接：{{join_url}}
 
-会议纪要&签到：{{etherpad}}
+会议纪要&签到链接：{{etherpad}}
 
 更多资讯尽在：{{portal_zh}}
 
