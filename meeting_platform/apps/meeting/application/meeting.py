@@ -188,6 +188,7 @@ class MeetingApp:
             "m_mid": meeting.get("m_mid"),
             "join_url": meeting.get("join_url"),
             "is_record": meeting.get("is_record"),
+            "is_private": meeting.get("is_private"),
         }
 
     @staticmethod
@@ -378,6 +379,11 @@ class MeetingApp:
         set_log_thread_local(request, log_key, [meeting["community"], meeting["topic"], meeting_id])
         meeting.update(meeting_data)
         meeting.update({"sequence": meeting["sequence"] + 1})
+        # Check is_private platform validation
+        if meeting.get("is_private"):
+            if meeting.get("platform", "").lower() != "welink":
+                logger.error('only welink platform support the private meeting.')
+                raise MyValidationError(RetCode.STATUS_MEETING_PRIVATE_SUPPORT_TYPE)
         # check modify meeting count
         if meeting["sequence"] > settings.MEETING_MODIFY_COUNT + 1:
             raise MyValidationError(RetCode.STATUS_MEETING_MODIFY_COUNT_LIMIT)
@@ -547,7 +553,7 @@ class MeetingApp:
         return list()
 
     def get_meeting_date(self, community, group_name, date, is_record):
-        queryset = self.meeting_dao.get_queryset().filter(is_delete=0)
+        queryset = self.meeting_dao.get_queryset().filter(is_delete=0, is_private=False)
         if community is not None:
             queryset = queryset.filter(community=community)
         if group_name is not None:

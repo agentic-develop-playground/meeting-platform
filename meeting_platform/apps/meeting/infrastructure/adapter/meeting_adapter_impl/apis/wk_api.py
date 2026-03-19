@@ -113,6 +113,8 @@ class WkApi(MeetingAdapter):
             'vmrFlag': 1,
             'vmrID': self.host_id
         }
+        if action.is_private:
+            data['confConfigInfo']['isGuestFreePwd'] = False
         if action.is_record:
             data['isAutoRecord'] = 1
             data['recordType'] = 2
@@ -224,6 +226,8 @@ class WkApi(MeetingAdapter):
         else:
             data['isAutoRecord'] = 0
             data['recordType'] = 0
+        if action.is_private:
+            data['confConfigInfo']['isGuestFreePwd'] = False
         response = requests.put(self._get_url(self.update_path), params=params, headers=headers, data=json.dumps(data),
                                 timeout=self.time_out)
         json_data = response.json()

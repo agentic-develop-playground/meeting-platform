@@ -26,6 +26,7 @@ from meeting_platform.test.meeting.fixtures import (
     get_future_date
 )
 from meeting_platform.test.meeting.test_utils import MockEmailClient, MockKafkaClient
+from meeting_platform.utils.ret_code import RetCode
 
 logger = logging.getLogger("log")
 
@@ -582,3 +583,99 @@ class NotificationErrorHandlingTest(BaseMeetingTest):
 
         # Meeting creation should still succeed
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class PrivateMeetingNotificationTest(BaseMeetingTest):
+    """Test cases for private meeting notification handling."""
+
+    create_url = "/inner/v1/meeting/meeting/"
+
+    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
+    @mock.patch('django.conf.settings.COMMUNITY_ETHERPAD', {'openEuler': 'test@openEuler.com'})
+    def test_private_meeting_community_email_rejected(self, mock_create):
+        """测试闭门会议使用社区邮件列表时被拒绝"""
+        mock_create.return_value = {
+            'mid': 'PRIVATE_EMAIL_TEST',
+            'join_url': 'https://test.welink.com/j/123',
+            'host_id': 'host@test.com',
+            'sub_info': [
+                {
+                    'sub_id': f'SUB_{i}',
+                    'date': str((datetime.now().date() + timedelta(days=i+1))),
+                    'start': '08:00',
+                    'end': '09:00'
+                }
+                for i in range(7)
+            ]
+        }
+
+        data = create_test_meeting_data({
+            'is_private': True,
+            'email_list': 'test@openEuler.com;user2@test.com',
+            'platform': 'welink'
+        })
+
+        response = self.client.post(self.create_url, data=data)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        # Check that error message contains the expected content
+        self.assertIn('msg', response.data)
+
+    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
+    @mock.patch('django.conf.settings.COMMUNITY_ETHERPAD', {'openEuler': 'test@openEuler.com'})
+    def test_public_meeting_community_email_accepted(self, mock_create):
+        """测试公开会议使用社区邮件列表时正常"""
+        mock_create.return_value = {
+            'mid': 'PUBLIC_EMAIL_TEST',
+            'join_url': 'https://test.welink.com/j/456',
+            'host_id': 'host@test.com',
+            'sub_info': [
+                {
+                    'sub_id': f'SUB_{i}',
+                    'date': str((datetime.now().date() + timedelta(days=i+1))),
+                    'start': '08:00',
+                    'end': '09:00'
+                }
+                for i in range(7)
+            ]
+        }
+
+        data = create_test_meeting_data({
+            'is_private': False,
+            'email_list': 'test@openEuler.com;user2@test.com',
+            'platform': 'welink'
+        })
+
+        response = self.client.post(self.create_url, data=data)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
+    @mock.patch('meeting_platform.utils.client.kafka_client.KafKaClient')
+    def test_private_meeting_no_kafka_notification(self, mock_kafka_send, mock_create):
+        """测试闭门会议不发送Kafka消息"""
+        mock_create.return_value = {
+            'mid': 'PRIVATE_KAFKA_TEST',
+            'join_url': 'https://test.welink.com/j/789',
+            'host_id': 'host@test.com',
+            'sub_info': [
+                {
+                    'sub_id': f'SUB_{i}',
+                    'date': str((datetime.now().date() + timedelta(days=i+1))),
+                    'start': '08:00',
+                    'end': '09:00'
+                }
+                for i in range(7)
+            ]
+        }
+
+        data = create_test_meeting_data({
+            'is_private': True,
+            'platform': 'welink'
+        })
+
+        response = self.client.post(self.create_url, data=data)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Kafka send method should not be called for private meetings
+        mock_kafka_send.assert_not_called()

@@ -149,6 +149,9 @@ COMMUNITY_PORTAL = {
         'PORTAL_EN': 'https://test.openeuler.org/en'
     }
 }
+COMMUNITY_ETHERPAD = {
+    'openEuler': 'test@openEuler.com'
+}
 
 # Test feature flags
 IS_UPLOAD_BILI = False  # Disable Bilibili upload in tests

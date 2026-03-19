@@ -27,6 +27,7 @@ from meeting_platform.test.meeting.fixtures import (
     create_cyclic_meeting_data,
     get_future_date
 )
+from meeting_platform.utils.ret_code import RetCode
 
 logger = logging.getLogger("log")
 
@@ -681,3 +682,90 @@ class SubMeetingTest(BaseCyclicMeetingTest):
                            f"Sub-meeting start {sm.start} != cycle start {cycle_date.start}")
             self.assertEqual(sm.end, cycle_date.end,
                            f"Sub-meeting end {sm.end} != cycle end {cycle_date.end}")
+
+
+class PrivateMeetingCyclicTest(BaseCyclicMeetingTest):
+    """Test cases for private meetings with cyclic meeting restrictions."""
+
+    url = "/inner/v1/meeting/meeting/"
+
+    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
+    def test_private_meeting_daily_cycle_failed(self, mock_create):
+        """测试闭门会议不能设置为周期性会议 - 日周期"""
+        mock_create.return_value = {
+            'mid': 'PRIVATE_DAILY_TEST',
+            'join_url': 'https://test.welink.com/j/123',
+            'host_id': 'host@test.com'
+        }
+        data = create_daily_cycle_data(interval=1, duration_days=7)
+        data['is_private'] = True
+        data['platform'] = 'welink'
+
+        response = self.client.post(self.url, data=data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        # Check that error message exists
+        self.assertIn('msg', response.data)
+
+    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
+    def test_private_meeting_weekly_cycle_failed(self, mock_create):
+        """测试闭门会议不能设置为周期性会议 - 周周期"""
+        mock_create.return_value = {
+            'mid': 'PRIVATE_WEEKLY_TEST',
+            'join_url': 'https://test.welink.com/j/456',
+            'host_id': 'host@test.com'
+        }
+        data = create_weekly_cycle_data(weekdays=[1], interval=1, duration_days=28)
+        data['is_private'] = True
+        data['platform'] = 'welink'
+
+        response = self.client.post(self.url, data=data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        # Check that error message exists
+        self.assertIn('msg', response.data)
+
+    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
+    def test_private_meeting_monthly_cycle_failed(self, mock_create):
+        """测试闭门会议不能设置为周期性会议 - 月周期"""
+        mock_create.return_value = {
+            'mid': 'PRIVATE_MONTHLY_TEST',
+            'join_url': 'https://test.welink.com/j/789',
+            'host_id': 'host@test.com'
+        }
+        data = create_monthly_cycle_data(days_of_month=[15], interval=1, duration_days=90)
+        data['is_private'] = True
+        data['platform'] = 'welink'
+
+        response = self.client.post(self.url, data=data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        # Check that error message exists
+        self.assertIn('msg', response.data)
+
+    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
+    def test_public_meeting_daily_cycle_works(self, mock_create):
+        """测试公开会议仍然可以设置为周期性会议"""
+        mock_create.return_value = {
+            'mid': 'PUBLIC_DAILY_TEST',
+            'join_url': 'https://test.welink.com/j/999',
+            'host_id': 'host@test.com',
+            'sub_info': [
+                {
+                    'sub_id': f'SUB_{i}',
+                    'date': str((datetime.now().date() + timedelta(days=i+1))),
+                    'start': '08:00',
+                    'end': '09:00'
+                }
+                for i in range(7)
+            ]
+        }
+        data = create_daily_cycle_data(interval=1, duration_days=7)
+        data['is_private'] = False
+        data['platform'] = 'welink'
+
+        response = self.client.post(self.url, data=data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        response_data = self.get_response_data(response)
+        self.assertIn('data', response_data)
+        meeting_id = response_data['data']
+        meeting = Meeting.objects.get(id=meeting_id)
+        self.assertTrue(meeting.is_cycle)
+        self.assertFalse(meeting.is_private)

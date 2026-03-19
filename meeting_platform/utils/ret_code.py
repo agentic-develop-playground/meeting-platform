@@ -87,6 +87,9 @@ class RetCode(RetCodeBase):
     STATUS_MEETING_IN_HALF_YEAR_FAILED = STATUS_FACILITY_MEETING + 12
     STATUS_MEETING_DATE_NOT_IN_RANGE_FAILED = STATUS_FACILITY_MEETING + 13
     STATUS_MEETING_PUT_INVALID_DATE = STATUS_FACILITY_MEETING + 14
+    STATUS_MEETING_PRIVATE_SUPPORT_TYPE = STATUS_FACILITY_MEETING + 15
+    STATUS_MEETING_PRIVATE_SUPPORT_CYCLE = STATUS_FACILITY_MEETING + 16
+    STATUS_MEETING_PRIVATE_SUPPORT_EMAIL_LIST = STATUS_FACILITY_MEETING + 17
 
     EN_OPERATION = {
         # common
@@ -125,6 +128,9 @@ class RetCode(RetCodeBase):
         STATUS_MEETING_DATE_NOT_IN_RANGE_FAILED: "No matching time found in the recurrence period.",
         STATUS_MEETING_PUT_INVALID_DATE: "The new time conflicts with an adjacent sub-meeting.",
         STATUS_MEETING_NOT_EXIST: "Meeting does not exist",
+        STATUS_MEETING_PRIVATE_SUPPORT_TYPE: "Closed-door meetings only support WeLink meetings.",
+        STATUS_MEETING_PRIVATE_SUPPORT_CYCLE: "Closed-door meetings only support non-periodic meetings.",
+        STATUS_MEETING_PRIVATE_SUPPORT_EMAIL_LIST: "Closed-door meetings do not support notifications via mailing lists.",
     }
 
     CN_OPERATION = {
@@ -163,5 +169,7 @@ class RetCode(RetCodeBase):
         STATUS_MEETING_DATE_NOT_IN_RANGE_FAILED: "重复规则里没有符合条件的时间。",
         STATUS_MEETING_PUT_INVALID_DATE: "修改的时间与相邻子会议时间冲突，请重新修改。",
         STATUS_MEETING_NOT_EXIST: "会议不存在。",
+        STATUS_MEETING_PRIVATE_SUPPORT_CYCLE: "闭门会议只支持非周期性会议。",
+        STATUS_MEETING_PRIVATE_SUPPORT_EMAIL_LIST: "闭门会议不支持通过邮件列表通知会议。",
 
     }

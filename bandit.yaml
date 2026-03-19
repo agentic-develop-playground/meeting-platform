@@ -1,0 +1,3 @@
+skips: [ 'B101' ]
+exclude_dirs: [ './meeting_platform/utils/customized/my_trimmer.py', './meeting_platform/utils/common.py', "./meeting_platform/test/meeting/fixtures.py", "./meeting_platform/settings/test.py", "./meeting_platform/apps/meeting/infrastructure/adapter/meeting_adapter_impl/apis/zoom_api.py", "./meeting_platform/apps/meeting/infrastructure/adapter/meeting_adapter_impl/apis/wk_api.py" ]
+

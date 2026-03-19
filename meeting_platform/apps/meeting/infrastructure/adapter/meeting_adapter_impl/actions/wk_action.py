@@ -15,6 +15,7 @@ class WkCreateAction(CreateAction):
     end: str
     topic: str
     is_record: bool
+    is_private: bool
 
 
 @dataclass
@@ -38,6 +39,7 @@ class WkUpdateAction(UpdateAction):
     end: str
     topic: str
     is_record: bool
+    is_private: bool
 
 
 @dataclass
