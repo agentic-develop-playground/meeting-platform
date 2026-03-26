@@ -130,7 +130,7 @@ class RetCode(RetCodeBase):
         STATUS_MEETING_NOT_EXIST: "Meeting does not exist",
         STATUS_MEETING_PRIVATE_SUPPORT_TYPE: "Private meetings only support WeLink meetings.",
         STATUS_MEETING_PRIVATE_SUPPORT_CYCLE: "Private meetings only support non-periodic meetings.",
-        STATUS_MEETING_PRIVATE_SUPPORT_EMAIL_LIST: "Private meetings do not support notifications via mailing list.",
+        STATUS_MEETING_PRIVATE_SUPPORT_EMAIL_LIST: "Do not enter SIG mailing list addresses to prevent unauthorized access to the meeting.",
     }
 
     CN_OPERATION = {
@@ -171,6 +171,6 @@ class RetCode(RetCodeBase):
         STATUS_MEETING_NOT_EXIST: "会议不存在。",
         STATUS_MEETING_PRIVATE_SUPPORT_TYPE: "非公开会议只支持WeLink会议。",
         STATUS_MEETING_PRIVATE_SUPPORT_CYCLE: "非公开会议只支持非周期性会议。",
-        STATUS_MEETING_PRIVATE_SUPPORT_EMAIL_LIST: "非公开会议不支持通过邮件列表通知会议。",
+        STATUS_MEETING_PRIVATE_SUPPORT_EMAIL_LIST: "请勿输入SIG组邮件列表地址，避免无关人员获得会议链接。",
 
     }
