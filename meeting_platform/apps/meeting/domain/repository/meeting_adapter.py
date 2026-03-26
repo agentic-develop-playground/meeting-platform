@@ -31,3 +31,8 @@ class MeetingAdapter(ABC):
     @abstractmethod
     def force_end_meeting(self, *args, **kwargs):
         pass
+
+    @abstractmethod
+    def get_meeting_status(self, *args, **kwargs):
+        """查询会议实时状态，返回 True/False"""
+        raise NotImplementedError

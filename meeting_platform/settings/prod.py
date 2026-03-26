@@ -282,6 +282,10 @@ MEETING_CREATE_COUNT = 10
 # 单个会议修改会议的限制次数
 MEETING_MODIFY_COUNT = 5
 
+# 运营团队邮箱配置（用于超时预警邮件）
+# 格式：{"community_name": ["email1@example.com", "email2@example.com"]}
+OPERATOR_EMAILS = VAULT_CONF.get("OPERATOR_EMAILS", {})
+
 CONF = None
 VAULT_CONF = None
 MYSQL_TLS_PEM_CONTENT = None

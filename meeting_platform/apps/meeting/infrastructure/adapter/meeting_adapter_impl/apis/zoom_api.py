@@ -14,7 +14,8 @@ from meeting_platform.utils.common import get_video_path
 from meeting_platform.utils.file_stream import download_big_file
 from meeting.domain.repository.meeting_adapter import MeetingAdapter
 from meeting.infrastructure.adapter.meeting_adapter_impl.actions.zoom_action import ZoomCreateAction, \
-    ZoomUpdateAction, ZoomDeleteAction, ZoomGetParticipantsAction, ZoomGetVideo, ZoomForceEndAction
+    ZoomUpdateAction, ZoomDeleteAction, ZoomGetParticipantsAction, ZoomGetVideo, ZoomForceEndAction, \
+    ZoomGetMeetingStatusAction
 
 logger = logging.getLogger("log")
 
@@ -316,4 +317,19 @@ class ZoomApi(MeetingAdapter):
             logger.error('[ZoomApi] Fail to force end meeting {}, and return data:{}'.format(action.mid,
                                                                                              response.json()))
         return response.status_code
+
+    def get_meeting_status(self, action):
+        """查询Zoom会议状态"""
+        if not isinstance(action, ZoomGetMeetingStatusAction):
+            raise RuntimeError("[ZoomApi] action must be the subclass of ZoomGetMeetingStatusAction")
+        detail_meeting_path = "/v2/meetings/{}"
+        uri = detail_meeting_path.format(action.mid)
+        headers = {"authorization": "Bearer {}".format(self._get_oauth_token())}
+        r = requests.get(self._get_url(uri), headers=headers, timeout=self.time_out)
+        if r.status_code == 200:
+            # status: waiting/started/ended
+            return r.json().get('status') == 'started'
+        logger.error('[ZoomApi] Fail to get meeting status for {}, status_code: {}, content: {}'
+                     .format(action.mid, r.status_code, r.content.decode("utf-8")))
+        return False
 

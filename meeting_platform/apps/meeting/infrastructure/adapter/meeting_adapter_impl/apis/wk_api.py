@@ -15,7 +15,7 @@ from meeting_platform.utils.file_stream import download_big_file
 from meeting.domain.repository.meeting_adapter import MeetingAdapter
 from meeting.infrastructure.adapter.meeting_adapter_impl.actions.wk_action import WkCreateAction, WkUpdateAction, \
     WkDeleteAction, WkGetParticipantsAction, WkGetVideo, WkCreateCycleAction, WkUpdateCycleAction, \
-    WkUpdateCycleSubAction, WkDeleteCycleAction, WkDeleteCycleSubAction, WkForceEndAction
+    WkUpdateCycleSubAction, WkDeleteCycleAction, WkDeleteCycleSubAction, WkForceEndAction, WkGetMeetingStatusAction
 from meeting_platform.utils.ret_api import MyValidationError
 from meeting_platform.utils.ret_code import RetCode
 
@@ -42,6 +42,7 @@ class WkApi(MeetingAdapter):
     detail_meeting_path = "/v1/mmc/management/conferences/confDetail"
     get_conf_token_path = "/v1/mmc/control/conferences/token"
     force_end_path = "/v1/mmc/control/conferences/stop"
+    get_online_path = "/v1/mmc/management/conferences/online"
 
     def __init__(self, community, platform, host_id):
         platform_info = settings.COMMUNITY_HOST[community][platform]
@@ -657,3 +658,28 @@ class WkApi(MeetingAdapter):
                                                                                            response.json()))
         logger.info('[WkApi] force end meeting meeting {}'.format(action.mid))
         return response.status_code
+
+    def get_meeting_status(self, action):
+        """查询WeLink会议状态"""
+        if not isinstance(action, WkGetMeetingStatusAction):
+            raise RuntimeError("[WkApi] action must be the subclass of WkGetMeetingStatusAction")
+        access_token = self._create_proxy_token()
+        headers = {
+            'X-Access-Token': access_token
+        }
+        params = {
+            "offset": 0,
+            "limit": 100,
+            "queryAll": True
+        }
+        response = requests.get(self._get_url(self.get_online_path), headers=headers, params=params,
+                                timeout=self.time_out)
+        if response.status_code != 200:
+            logger.error('[WkApi] Fail to get online info, and return data:{}'.format(response.json()))
+            return None
+        meetings = response.json().get("data")
+        mids = [meeting["vmrConferenceID"] for meeting in meetings if meeting["vmrConferenceID"] == action.mid]
+        logger.info('[WkApi] get detail info:{}'.format(mids))
+        if len(mids):
+            return True
+        return False

@@ -104,3 +104,155 @@ class MeetingDao:
         return cls.dao.objects.filter(is_delete=0, community=community,
                                       is_record=True, id__in=bili_records). \
             filter(Q(date__gt=start_date) & Q(date__lte=end_date)).all()
+
+    @classmethod
+    def get_ongoing_candidates(cls, community, now):
+        """获取需要同步状态的会议
+
+        条件：预定开始时间-10分钟 <= 现在 <= 预定结束时间+2小时，或当前状态为进行中
+        """
+        from datetime import datetime, timedelta
+
+        # 计算时间窗口
+        start_window = (now - timedelta(minutes=10)).strftime('%H:%M')
+        end_window = (now + timedelta(hours=2)).strftime('%H:%M')
+        today = now.strftime('%Y-%m-%d')
+
+        query_set = cls.dao.objects.filter(community=community, is_delete=0)
+
+        # 非周期会议：时间窗口内或正在进行中
+        non_cycle_meetings = query_set.filter(
+            is_cycle=False,
+            date=today,
+            start__lte=end_window,
+            end__gte=start_window
+        ).all()
+
+        # 正在进行中的会议（持续监控直到结束）
+        ongoing_meetings = query_set.filter(is_cycle=False, is_ongoing=True).all()
+
+        # 合并结果，去重
+        meeting_ids = set()
+        result = []
+        for m in non_cycle_meetings:
+            if m.id not in meeting_ids:
+                meeting_ids.add(m.id)
+                result.append(m)
+        for m in ongoing_meetings:
+            if m.id not in meeting_ids:
+                meeting_ids.add(m.id)
+                result.append(m)
+
+        # 周期会议：查询今天有子会议在时间窗口内的
+        cycle_meetings = query_set.filter(
+            is_cycle=True,
+            cycle_sub_meeting__date=today,
+            cycle_sub_meeting__start__lte=end_window,
+            cycle_sub_meeting__end__gte=start_window
+        ).distinct().all()
+
+        for m in cycle_meetings:
+            if m.id not in meeting_ids:
+                meeting_ids.add(m.id)
+                result.append(m)
+
+        # 正在进行中的周期会议
+        ongoing_cycle_meetings = query_set.filter(
+            is_cycle=True,
+            cycle_sub_meeting__is_ongoing=True
+        ).distinct().all()
+
+        for m in ongoing_cycle_meetings:
+            if m.id not in meeting_ids:
+                meeting_ids.add(m.id)
+                result.append(m)
+
+        return result
+
+    @classmethod
+    def update_status(cls, meeting_id, is_ongoing):
+        """更新会议状态"""
+        from datetime import datetime
+        return cls.dao.objects.filter(id=meeting_id).update(
+            is_ongoing=is_ongoing,
+            ongoing_updated_at=datetime.now()
+        )
+
+    @classmethod
+    def get_overtime_meetings(cls, community, today):
+        """获取超时的非周期会议
+
+        条件：date=今天 AND end < 当前时间 AND is_ongoing=True
+        """
+        from datetime import datetime
+        now = datetime.now()
+        current_time = now.strftime('%H:%M')
+
+        return cls.dao.objects.filter(
+            community=community,
+            is_delete=0,
+            is_cycle=False,
+            date=today,
+            end__lt=current_time,
+            is_ongoing=True
+        ).all()
+
+    @classmethod
+    def update_overtime_status(cls, meeting_id, is_overtime):
+        """更新会议超时状态"""
+        from datetime import datetime
+        if is_overtime:
+            return cls.dao.objects.filter(id=meeting_id).update(
+                is_overtime=is_overtime,
+                overtime_detected_at=datetime.now()
+            )
+        else:
+            return cls.dao.objects.filter(id=meeting_id).update(
+                is_overtime=is_overtime,
+                overtime_detected_at=None
+            )
+
+    @classmethod
+    def get_upcoming_end_meetings(cls, community, today, warning_minutes=5):
+        """获取即将结束的会议（用于发送预警邮件）
+
+        条件：date=今天 AND end在当前时间到当前时间+warning_minutes之间 AND is_ongoing=True AND warning_email_sent=False
+        """
+        from datetime import datetime, timedelta
+
+        now = datetime.now()
+        current_time = now.strftime('%H:%M')
+        warning_time = (now + timedelta(minutes=warning_minutes)).strftime('%H:%M')
+
+        return cls.dao.objects.filter(
+            community=community,
+            is_delete=0,
+            is_cycle=False,
+            date=today,
+            end__gte=current_time,
+            end__lte=warning_time,
+            is_ongoing=True,
+            warning_email_sent=False
+        ).all()
+
+    @classmethod
+    def mark_warning_email_sent(cls, meeting_id):
+        """标记已发送预警邮件"""
+        return cls.dao.objects.filter(id=meeting_id).update(warning_email_sent=True)
+
+    @classmethod
+    def reset_warning_email_status(cls, meeting_id):
+        """重置预警邮件状态（会议开始时调用）"""
+        return cls.dao.objects.filter(id=meeting_id).update(warning_email_sent=False)
+
+    @classmethod
+    def clear_overtime_status(cls, meeting_id):
+        """清除超时状态（会议正常结束或强制结束时调用）"""
+        from datetime import datetime
+        return cls.dao.objects.filter(id=meeting_id).update(
+            is_overtime=False,
+            overtime_detected_at=None,
+            is_ongoing=False,
+            ongoing_updated_at=datetime.now(),
+            warning_email_sent=False
+        )

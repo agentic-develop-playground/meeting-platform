@@ -49,3 +49,7 @@ class GetVideoAction(BaseAction):
 
 class ForceEndAction(BaseAction):
     function_action = "force_end_meeting"
+
+
+class GetMeetingStatusAction(BaseAction):
+    function_action = "get_meeting_status"

@@ -44,6 +44,11 @@ class Meeting(models.Model):
     sequence = models.IntegerField(verbose_name='修改次数', default=1)
     is_private = models.BooleanField(verbose_name='是否闭门会议', default=False)
     is_delete = models.BooleanField(verbose_name='是否删除', default=False)
+    is_ongoing = models.BooleanField(verbose_name='是否正在进行中', default=False)
+    ongoing_updated_at = models.DateTimeField(verbose_name='状态更新时间', null=True, blank=True)
+    is_overtime = models.BooleanField(verbose_name='是否超时', default=False)
+    overtime_detected_at = models.DateTimeField(verbose_name='超时检测时间', null=True, blank=True)
+    warning_email_sent = models.BooleanField(verbose_name='是否已发送预警邮件', default=False)
 
     objects = models.Manager()
 
@@ -129,6 +134,11 @@ class MeetingCycleSubMeeting(models.Model):
     start = models.CharField(verbose_name='会议开始时间', max_length=32)
     end = models.CharField(verbose_name='会议结束时间', max_length=32)
     meeting = models.ForeignKey(Meeting, on_delete=models.CASCADE, related_name="cycle_sub_meeting", default=None)
+    is_ongoing = models.BooleanField(verbose_name='是否正在进行中', default=False)
+    ongoing_updated_at = models.DateTimeField(verbose_name='状态更新时间', null=True, blank=True)
+    is_overtime = models.BooleanField(verbose_name='是否超时', default=False)
+    overtime_detected_at = models.DateTimeField(verbose_name='超时检测时间', null=True, blank=True)
+    warning_email_sent = models.BooleanField(verbose_name='是否已发送预警邮件', default=False)
 
     objects = models.Manager()
 

@@ -17,7 +17,8 @@ from meeting_platform.utils.common import make_nonce, get_video_path
 from meeting_platform.utils.file_stream import download_big_file
 from meeting.domain.repository.meeting_adapter import MeetingAdapter
 from meeting.infrastructure.adapter.meeting_adapter_impl.actions.tencent_action import TencentCreateAction, \
-    TencentDeleteAction, TencentGetParticipantsAction, TencentGetVideo, TencentUpdateAction, TencentForceEndAction
+    TencentDeleteAction, TencentGetParticipantsAction, TencentGetVideo, TencentUpdateAction, TencentForceEndAction, \
+    TencentGetMeetingStatusAction
 from meeting_platform.utils.ret_api import MyValidationError
 from meeting_platform.utils.ret_code import RetCode
 
@@ -338,3 +339,20 @@ class TencentApi(MeetingAdapter):
             return r.status_code
         logger.info('[TencentApi] force end meeting {}'.format(m_mid))
         return r.status_code
+
+    def get_meeting_status(self, action):
+        """查询腾讯会议状态"""
+        if not isinstance(action, TencentGetMeetingStatusAction):
+            raise RuntimeError("[TencentApi] action must be the subclass of TencentGetMeetingStatusAction")
+        detail_meeting_path = "/v1/meetings/{}?userid={}&instanceid=1"
+        uri = detail_meeting_path.format(action.m_mid, self.host_id)
+        signature, headers = self._get_signature('GET', uri, "")
+        r = requests.get(self._get_url(uri), headers=headers, timeout=self.time_out)
+        if r.status_code == 200:
+            # status: 1-未开始, 2-进行中, 3-已结束
+            meeting_info_list = r.json().get('meeting_info_list', [{}])
+            if meeting_info_list:
+                return meeting_info_list[0].get('status') == 2
+        logger.error('[TencentApi] Fail to get meeting status for {}, status_code: {}, content: {}'
+                     .format(action.m_mid, r.status_code, r.content.decode("utf-8")))
+        return False

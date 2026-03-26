@@ -41,6 +41,9 @@ class MeetingSerializer(ModelSerializer):
 
     duration = serializers.SerializerMethodField()
     duration_time = serializers.SerializerMethodField()
+    is_ongoing = serializers.SerializerMethodField()
+    is_overtime = serializers.SerializerMethodField()
+    overtime_detected_at = serializers.DateTimeField(read_only=True)
 
     cycle_start_date = serializers.CharField(required=False)
     cycle_end_date = serializers.CharField(required=False)
@@ -55,8 +58,10 @@ class MeetingSerializer(ModelSerializer):
         model = Meeting
         fields = ['id', 'sponsor', 'group_name', 'community', 'topic', 'platform', 'date', 'start', 'end',
                   'agenda', 'etherpad', 'email_list', 'mid', 'm_mid', 'join_url', 'create_time', 'update_time',
-                  'is_private', 'is_delete', 'is_record', 'duration', 'duration_time', 'is_cycle', 'cycle_start_date',
-                  'cycle_end_date', 'cycle_start', 'cycle_end', 'cycle_type', 'cycle_interval', 'cycle_point']
+                  'is_private', 'is_delete', 'is_record', 'duration', 'duration_time', 'is_cycle', 'is_ongoing',
+                  'is_overtime', 'overtime_detected_at',
+                  'cycle_start_date', 'cycle_end_date', 'cycle_start', 'cycle_end', 'cycle_type', 'cycle_interval',
+                  'cycle_point']
         extra_kwargs = {
             'id': {'read_only': True},
             'mid': {'read_only': True},
@@ -294,6 +299,14 @@ class MeetingSerializer(ModelSerializer):
         if obj.start and obj.end:
             return obj.start.split(':')[0] + ':00' + '-' + str(math.ceil(float(obj.end.replace(':', '.')))) + ':00'
 
+    def get_is_ongoing(self, obj):
+        """获取会议是否正在进行中"""
+        return obj.is_ongoing
+
+    def get_is_overtime(self, obj):
+        """获取会议是否超时"""
+        return obj.is_overtime
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data["email_list"] = to_anonymous_email_list(data.get("email_list"))
@@ -332,6 +345,9 @@ class SingleMeetingSerializer(ModelSerializer):
 
     duration = serializers.SerializerMethodField()
     duration_time = serializers.SerializerMethodField()
+    is_ongoing = serializers.SerializerMethodField()
+    is_overtime = serializers.SerializerMethodField()
+    overtime_detected_at = serializers.DateTimeField(read_only=True)
 
     is_notify = serializers.BooleanField(required=False)
     cycle_start_date = serializers.CharField(required=False)
@@ -347,7 +363,8 @@ class SingleMeetingSerializer(ModelSerializer):
         model = Meeting
         fields = ['id', 'sponsor', 'group_name', 'community', 'topic', 'platform', 'date', 'start', 'end',
                   'agenda', 'etherpad', 'email_list', 'mid', 'm_mid', 'is_record', 'duration', 'duration_time',
-                  'join_url', 'create_time', 'update_time', 'is_delete', 'is_cycle', 'cycle_start_date',
+                  'join_url', 'create_time', 'update_time', 'is_delete', 'is_cycle', 'is_ongoing', 'is_overtime',
+                  'overtime_detected_at', 'cycle_start_date',
                   'cycle_end_date', 'cycle_start', 'cycle_end', 'cycle_type', 'cycle_interval', 'cycle_point',
                   'is_notify', 'is_private']
         extra_kwargs = {
@@ -531,6 +548,14 @@ class SingleMeetingSerializer(ModelSerializer):
         """get duration time"""
         if obj.start and obj.end:
             return obj.start.split(':')[0] + ':00' + '-' + str(math.ceil(float(obj.end.replace(':', '.')))) + ':00'
+
+    def get_is_ongoing(self, obj):
+        """获取会议是否正在进行中"""
+        return obj.is_ongoing
+
+    def get_is_overtime(self, obj):
+        """获取会议是否超时"""
+        return obj.is_overtime
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
