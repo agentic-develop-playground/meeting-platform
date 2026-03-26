@@ -312,10 +312,9 @@ class MeetingCycleSubMeetingDaoOvertimeTest(TestCommonMeeting):
 
 
 class ForceEndMeetingViewTest(TestCommonMeeting):
-    """Test force end meeting API endpoints."""
+    """Test force end meeting API endpoint."""
 
-    url = "/inner/v1/meeting/meeting/{}/force_end/"
-    sub_url = "/inner/v1/meeting/meeting/sub/{}/force_end/"
+    url = "/inner/v1/meeting/meeting/force_end/"
 
     def setUp(self):
         super().setUp()
@@ -355,7 +354,7 @@ class ForceEndMeetingViewTest(TestCommonMeeting):
         mock_force_end.return_value = 200
         meeting = self._create_test_meeting()
 
-        response = self.client.post(self.url.format(meeting.id))
+        response = self.client.post(self.url, {"meeting_id": meeting.id})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
@@ -367,7 +366,13 @@ class ForceEndMeetingViewTest(TestCommonMeeting):
 
     def test_force_end_meeting_not_found(self):
         """Test force end of non-existent meeting returns error."""
-        response = self.client.post(self.url.format(99999))
+        response = self.client.post(self.url, {"meeting_id": 99999})
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_force_end_meeting_missing_meeting_id(self):
+        """Test force end without meeting_id returns error."""
+        response = self.client.post(self.url, {})
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
@@ -401,7 +406,7 @@ class ForceEndMeetingViewTest(TestCommonMeeting):
             is_overtime=True
         )
 
-        response = self.client.post(self.url.format(parent.id))
+        response = self.client.post(self.url, {"meeting_id": parent.id})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
@@ -413,11 +418,46 @@ class ForceEndMeetingViewTest(TestCommonMeeting):
         self.assertFalse(sub2.is_ongoing)
         self.assertFalse(sub2.is_overtime)
 
+    @mock.patch("meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.force_end_meeting")
+    def test_force_end_sub_meeting_success(self, mock_force_end):
+        """Test successful force end of a sub meeting via meeting_id + sub_id."""
+        mock_force_end.return_value = 200
+
+        parent = self._create_test_meeting(is_cycle=True)
+        sub = MeetingCycleSubMeetingDao.create(
+            mid=parent.mid,
+            sub_id=f"sub_{datetime.datetime.now().timestamp()}",
+            date=self.today,
+            start="10:00",
+            end="11:00",
+            meeting=parent,
+            is_ongoing=True,
+            is_overtime=True,
+            warning_email_sent=True
+        )
+
+        response = self.client.post(self.url, {"meeting_id": parent.id, "sub_id": sub.sub_id})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Verify status was cleared
+        sub.refresh_from_db()
+        self.assertFalse(sub.is_ongoing)
+        self.assertFalse(sub.is_overtime)
+        self.assertFalse(sub.warning_email_sent)
+
+    def test_force_end_sub_meeting_not_found(self):
+        """Test force end of non-existent sub meeting returns error."""
+        meeting = self._create_test_meeting(is_cycle=True)
+        response = self.client.post(self.url, {"meeting_id": meeting.id, "sub_id": "non_existent_sub_id"})
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
 
 class ForceEndSubMeetingViewTest(TestCommonMeeting):
-    """Test force end sub meeting API endpoint."""
+    """Test force end sub meeting via unified API endpoint."""
 
-    url = "/inner/v1/meeting/meeting/sub/{}/force_end/"
+    url = "/inner/v1/meeting/meeting/force_end/"
 
     def setUp(self):
         super().setUp()
@@ -462,7 +502,7 @@ class ForceEndSubMeetingViewTest(TestCommonMeeting):
             warning_email_sent=True
         )
 
-        response = self.client.post(self.url.format(sub.sub_id))
+        response = self.client.post(self.url, {"meeting_id": parent.id, "sub_id": sub.sub_id})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
@@ -474,7 +514,8 @@ class ForceEndSubMeetingViewTest(TestCommonMeeting):
 
     def test_force_end_sub_meeting_not_found(self):
         """Test force end of non-existent sub meeting returns error."""
-        response = self.client.post(self.url.format("non_existent_sub_id"))
+        parent = self._create_parent_meeting()
+        response = self.client.post(self.url, {"meeting_id": parent.id, "sub_id": "non_existent_sub_id"})
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 

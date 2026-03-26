@@ -262,62 +262,55 @@ class MeetingTextCallBack(MySerializerParse, CreateAPIView):
 
 
 class ForceEndMeetingView(GenericAPIView):
-    """强制结束会议（内部API）"""
+    """强制结束会议（内部API）- 统一接口
+
+    请求参数（POST body）：
+    - 非周期会议: {"meeting_id": 123}
+    - 周期子会议: {"meeting_id": 123, "sub_id": "xxx"}
+    """
     serializer_class = EmptySerializers
     queryset = MeetingDao.get_queryset().filter(is_delete=0)
-    lookup_field = "id"
 
     @capture_my_validation_exception
     def post(self, request, *args, **kwargs):
-        meeting_id = kwargs.get('id')
+        meeting_id = request.data.get('meeting_id')
+        sub_id = request.data.get('sub_id')
+
+        if not meeting_id:
+            raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
+
         meeting = self.queryset.filter(id=meeting_id).first()
         if not meeting:
             raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
 
-        # 调用适配器强制结束会议
         meeting_adapter = MeetingAdapterImpl()
         meeting_dict = model_to_dict(meeting)
-        meeting_adapter.force_end_meeting(meeting_dict)
 
-        # 清除超时状态
-        if meeting.is_cycle:
-            # 周期会议：清除所有正在进行中的子会议的超时状态
-            sub_meetings = MeetingCycleSubMeetingDao.get_by_mid(meeting.mid)
-            for sub in sub_meetings:
-                if sub.get('is_ongoing') or sub.get('is_overtime'):
-                    MeetingCycleSubMeetingDao.clear_overtime_status(sub.get('sub_id'))
+        if sub_id:
+            # 强制结束周期子会议
+            sub_meeting = MeetingCycleSubMeetingDao.get_all().filter(sub_id=sub_id).first()
+            if not sub_meeting:
+                raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
+
+            meeting_dict["sub_id"] = sub_id
+            meeting_adapter.force_end_meeting(meeting_dict)
+
+            # 清除子会议超时状态
+            MeetingCycleSubMeetingDao.clear_overtime_status(sub_id)
+
+            return ret_json(data={"message": "Sub meeting force ended successfully"})
         else:
-            # 非周期会议
-            MeetingDao.clear_overtime_status(meeting_id)
+            # 强制结束非周期会议
+            meeting_adapter.force_end_meeting(meeting_dict)
 
-        return ret_json(data={"message": "Meeting force ended successfully"})
+            if meeting.is_cycle:
+                # 周期会议：清除所有正在进行中的子会议的超时状态
+                sub_meetings = MeetingCycleSubMeetingDao.get_by_mid(meeting.mid)
+                for sub in sub_meetings:
+                    if sub.get('is_ongoing') or sub.get('is_overtime'):
+                        MeetingCycleSubMeetingDao.clear_overtime_status(sub.get('sub_id'))
+            else:
+                # 非周期会议
+                MeetingDao.clear_overtime_status(meeting_id)
 
-
-class ForceEndSubMeetingView(GenericAPIView):
-    """强制结束周期子会议（内部API）"""
-    serializer_class = EmptySerializers
-    queryset = MeetingCycleSubMeetingDao.get_all()
-    lookup_field = "sub_id"
-
-    @capture_my_validation_exception
-    def post(self, request, *args, **kwargs):
-        sub_id = kwargs.get('sub_id')
-        sub_meeting = self.queryset.filter(sub_id=sub_id).first()
-        if not sub_meeting:
-            raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
-
-        # 获取父会议信息
-        meeting = MeetingDao.get_by_mid(sub_meeting.mid)
-        if not meeting:
-            raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
-
-        # 调用适配器强制结束会议
-        meeting_adapter = MeetingAdapterImpl()
-        meeting_dict = model_to_dict(meeting)
-        meeting_dict["sub_id"] = sub_id
-        meeting_adapter.force_end_meeting(meeting_dict)
-
-        # 清除超时状态
-        MeetingCycleSubMeetingDao.clear_overtime_status(sub_id)
-
-        return ret_json(data={"message": "Sub meeting force ended successfully"})
+            return ret_json(data={"message": "Meeting force ended successfully"})

@@ -7,7 +7,7 @@ from django.urls import path
 
 from meeting.controller.inner import MeetingView, SingleMeetingView, MeetingParticipantsView, \
     MeetingPlatformView, MeetingDateView, MeetingTextCallBack, SingleSubMeetingView, NotifyMeetingView, \
-    MeetingGroupView, ForceEndMeetingView, ForceEndSubMeetingView
+    MeetingGroupView, ForceEndMeetingView
 
 urlpatterns = [
     path('meeting/', MeetingView.as_view()),                                    # 预定会议/会议列表
@@ -22,6 +22,5 @@ urlpatterns = [
     path('meeting/meeting_text/callback/', MeetingTextCallBack.as_view()),       # 文字翻译的回调地址
 
     # 超时会议相关API
-    path('meeting/<int:id>/force_end/', ForceEndMeetingView.as_view()),          # 强制结束会议
-    path('meeting/sub/<str:sub_id>/force_end/', ForceEndSubMeetingView.as_view()), # 强制结束周期子会议
+    path('meeting/force_end/', ForceEndMeetingView.as_view()),           # 强制结束会议（统一接口）
 ]
