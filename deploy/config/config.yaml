@@ -25,5 +25,5 @@ COMMUNITY_PORTAL:
     PORTAL_EN: ""
     PORTAL_ZH: ""
 
-COMMUNITY_ETHERPAD:
-  openUBMC: "https://etherpad.openubmc.org/"
+COMMUNITY_PRIVATE_MEETING_EMAIL_SUFFIX:
+  openUBMC: "@openubmc.org"

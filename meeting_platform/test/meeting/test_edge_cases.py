@@ -216,19 +216,42 @@ class DateEdgeCaseTest(BaseCyclicMeetingTest):
     @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
     def test_monthly_cycle_day_31_april(self, mock_create):
         """Test monthly cycle with day 31 in 30-day month (April)."""
+        import calendar
+
+        # Generate correct sub_info based on cycle rules
+        today = datetime.now().date()
+        start_date = today + timedelta(days=1)
+        end_date = today + timedelta(days=150)
+
+        sub_info = []
+        sub_id = 0
+        current_month = start_date.replace(day=1)
+
+        while current_month <= end_date:
+            year, month = current_month.year, current_month.month
+            last_day = calendar.monthrange(year, month)[1]
+            meeting_day = min(31, last_day)  # Handle months with less than 31 days
+
+            meeting_date = datetime(year, month, meeting_day).date()
+            if meeting_date >= start_date:
+                sub_info.append({
+                    'sub_id': f'SUB_{sub_id}',
+                    'date': str(meeting_date),
+                    'start': '08:00',
+                    'end': '09:00'
+                })
+                sub_id += 1
+
+            if month == 12:
+                current_month = datetime(year + 1, 1, 1).date()
+            else:
+                current_month = datetime(year, month + 1, 1).date()
+
         mock_create.return_value = {
             'mid': 'APRIL_31_TEST',
             'join_url': 'https://test.zoom.us/j/555',
             'host_id': 'host4@test.com',
-            'sub_info': [
-                {
-                    'sub_id': f'SUB_{i}',
-                    'date': str((datetime.now().date() + timedelta(days=i+1))),
-                    'start': '08:00',
-                    'end': '09:00'
-                }
-                for i in range(7)
-            ]
+            'sub_info': sub_info
         }
 
         data = create_monthly_cycle_data(days_of_month=[31], duration_days=150)

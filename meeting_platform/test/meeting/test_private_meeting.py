@@ -77,7 +77,7 @@ class CreatePrivateMeetingTest(BaseMeetingTest):
         self.assertEqual(response.json()['code'], 400)
 
     @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
-    @mock.patch('django.conf.settings.COMMUNITY_ETHERPAD', {'openEuler': 'test@openEuler.com'})
+    @mock.patch('django.conf.settings.COMMUNITY_PRIVATE_MEETING_EMAIL_SUFFIX', {'openEuler': '@openEuler.com'})
     def test_create_private_meeting_with_mailing_list(self, mock_create):
         """测试闭门会议使用邮件列表时的验证"""
         mock_create.return_value = {
