@@ -216,6 +216,25 @@ class DateEdgeCaseTest(BaseCyclicMeetingTest):
     @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
     def test_monthly_cycle_day_31_april(self, mock_create):
         """Test monthly cycle with day 31 in 30-day month (April)."""
+        # Generate realistic monthly cycle dates using the actual logic
+        # For day 31 monthly cycle, April dates should fall back to day 30
+        import calendar
+        from meeting.domain.primitive.cycle_type import CycleType
+
+        # Calculate proper monthly cycle dates for mock
+        test_meeting = {
+            'cycle_start_date': get_future_date(1),
+            'cycle_end_date': get_future_date(150),
+            'cycle_start': '08:00',
+            'cycle_end': '09:00',
+            'cycle_type': CycleType.Month,
+            'cycle_interval': 1,
+            'cycle_point': [31]
+        }
+
+        from meeting.infrastructure.code_adapter.core_operators import get_cycle_date_by_policy
+        cycle_dates = get_cycle_date_by_policy(test_meeting)
+
         mock_create.return_value = {
             'mid': 'APRIL_31_TEST',
             'join_url': 'https://test.zoom.us/j/555',
@@ -223,11 +242,11 @@ class DateEdgeCaseTest(BaseCyclicMeetingTest):
             'sub_info': [
                 {
                     'sub_id': f'SUB_{i}',
-                    'date': str((datetime.now().date() + timedelta(days=i+1))),
-                    'start': '08:00',
-                    'end': '09:00'
+                    'date': cycle_dates[i]['date'],
+                    'start': cycle_dates[i]['start'],
+                    'end': cycle_dates[i]['end']
                 }
-                for i in range(7)
+                for i in range(min(7, len(cycle_dates)))
             ]
         }
 
