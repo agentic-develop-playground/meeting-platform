@@ -133,7 +133,7 @@ def check_email_in_list(email_list_str, email_list_format):
         return
     email_list = email_list_str.split(";")
     for email in email_list:
-        if email and email.startswith(email_list_format):
+        if email and email.endswith(email_list_format):
             logger.error("The email （{}） is in email list".format(email))
             raise MyValidationError(RetCode.STATUS_MEETING_PRIVATE_SUPPORT_EMAIL_LIST)
 

@@ -591,7 +591,7 @@ class PrivateMeetingNotificationTest(BaseMeetingTest):
     create_url = "/inner/v1/meeting/meeting/"
 
     @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
-    @mock.patch('django.conf.settings.COMMUNITY_ETHERPAD', {'openEuler': 'test@openEuler.com'})
+    @mock.patch('django.conf.settings.COMMUNITY_PRIVATE_MEETING_EMAIL_SUFFIX', {'openEuler': '@openEuler.com'})
     def test_private_meeting_community_email_rejected(self, mock_create):
         """测试闭门会议使用社区邮件列表时被拒绝"""
         mock_create.return_value = {
@@ -622,7 +622,7 @@ class PrivateMeetingNotificationTest(BaseMeetingTest):
         self.assertIn('msg', response.data)
 
     @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
-    @mock.patch('django.conf.settings.COMMUNITY_ETHERPAD', {'openEuler': 'test@openEuler.com'})
+    @mock.patch('django.conf.settings.COMMUNITY_PRIVATE_MEETING_EMAIL_SUFFIX', {'openEuler': '@openEuler.com'})
     def test_public_meeting_community_email_accepted(self, mock_create):
         """测试公开会议使用社区邮件列表时正常"""
         mock_create.return_value = {

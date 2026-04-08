@@ -268,7 +268,7 @@ class MeetingSerializer(ModelSerializer):
                 logger.error('only the not cycle meeting support the private meeting.')
                 raise MyValidationError(RetCode.STATUS_MEETING_PRIVATE_SUPPORT_CYCLE)
             if "email_list" in attrs:
-                check_email_in_list(attrs["email_list"], settings.COMMUNITY_ETHERPAD.get(attrs["community"]))
+                check_email_in_list(attrs["email_list"], settings.COMMUNITY_PRIVATE_MEETING_EMAIL_SUFFIX.get(attrs["community"]))
         if not attrs["is_cycle"]:
             check_duration(attrs["start"], attrs["end"], attrs["date"], datetime.now())
         if attrs["community"] not in settings.COMMUNITY_HOST.keys():
@@ -536,7 +536,7 @@ class SingleMeetingSerializer(ModelSerializer):
                 community = attrs.get("community")
                 if community is None and self.instance:
                     community = self.instance.community
-                check_email_in_list(attrs["email_list"], settings.COMMUNITY_ETHERPAD.get(community))
+                check_email_in_list(attrs["email_list"], settings.COMMUNITY_PRIVATE_MEETING_EMAIL_SUFFIX.get(community))
         return attrs
 
     def get_duration(self, obj):
