@@ -122,19 +122,20 @@ def check_time(time_str):
 
 
 def check_email_list(email_list_str):
-    # len of email list str gt 1000 and the single email limit 50 and limit 20 email
-    # if len(email_list_str) > 1020:
-    #     logger.error("The length of email_list is gt 1000")
-    #     raise MyValidationError(RetCode.STATUS_MEETING_EMAIL_LIST_OVER_LIMIT)
     email_list = email_list_str.split(";")
     for email in email_list:
-        # if len(email) > 50:
-        #     logger.error("The length of email is gt 50")
-        #     raise MyValidationError(RetCode.STATUS_MEETING_EMAIL_OVER_LIMIT)
         if email and not match_email(email):
             logger.error("The email does not conform to the format")
             raise MyValidationError(RetCode.STATUS_MEETING_INVALID_EMAIL)
 
+def check_email_in_list(email_list_str, email_list_format):
+    if email_list_format is None or email_list_str is None:
+        return
+    email_list = email_list_str.split(";")
+    for email in email_list:
+        if email and email.endswith(email_list_format):
+            logger.error("The email （{}） is in email list".format(email))
+            raise MyValidationError(RetCode.STATUS_MEETING_PRIVATE_SUPPORT_EMAIL_LIST)
 
 def check_duration(start, end, date, now_time):
     err_msg = list()

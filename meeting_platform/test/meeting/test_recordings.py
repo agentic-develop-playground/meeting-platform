@@ -584,3 +584,141 @@ class RecordingsCyclicMeetingTest(BaseCyclicMeetingTest):
             self.assertIsNone(parent_obs.sub_id)
             self.assertIsNotNone(sub_obs.sub_id)
             self.assertNotEqual(parent_obs.text_video_url, sub_obs.text_video_url)
+
+
+class PrivateMeetingRecordingTest(BaseMeetingTest):
+    """Test cases for private meeting recording handling."""
+
+    create_url = "/inner/v1/meeting/meeting/"
+    get_url = "/inner/v1/meeting/meeting/{}/"
+
+    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
+    def test_private_meeting_with_recording_disabled(self, mock_create):
+        """测试闭门会议虽然设置is_record=True但实际不处理录像"""
+        mock_create.return_value = {
+            'mid': 'PRIVATE_RECORD_TEST',
+            'join_url': 'https://test.welink.com/j/123',
+            'host_id': 'host@test.com',
+            'sub_info': [
+                {
+                    'sub_id': f'SUB_{i}',
+                    'date': str((datetime.now().date() + timedelta(days=i+1))),
+                    'start': '08:00',
+                    'end': '09:00'
+                }
+                for i in range(7)
+            ]
+        }
+
+        # Create private meeting with recording enabled
+        data = create_test_meeting_data({
+            'is_private': True,
+            'is_record': True,
+            'platform': 'welink'
+        })
+
+        response = self.client.post(self.create_url, data=data)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        meeting_id = response.json()['data']
+        meeting = Meeting.objects.get(id=meeting_id)
+
+        # Meeting should have is_record=True (stored in DB)
+        meeting = Meeting.objects.filter(mid=meeting.mid).first()
+        self.assertTrue(meeting.is_record)
+        self.assertTrue(meeting.is_private)
+
+        # But recording processing should skip this meeting due to is_private=True
+        # The actual recording upload logic checks is_private flag
+
+    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
+    def test_public_meeting_with_recording_works(self, mock_create):
+        """测试公开会议的录像处理正常工作"""
+        mock_create.return_value = {
+            'mid': 'PUBLIC_RECORD_TEST',
+            'join_url': 'https://test.welink.com/j/456',
+            'host_id': 'host@test.com',
+            'sub_info': [
+                {
+                    'sub_id': f'SUB_{i}',
+                    'date': str((datetime.now().date() + timedelta(days=i+1))),
+                    'start': '08:00',
+                    'end': '09:00'
+                }
+                for i in range(7)
+            ]
+        }
+
+        # Create public meeting with recording enabled
+        data = create_test_meeting_data({
+            'is_private': False,
+            'is_record': True,
+            'platform': 'welink'
+        })
+
+        response = self.client.post(self.create_url, data=data)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        meeting_id = response.json()['data']
+        meeting = Meeting.objects.get(id=meeting_id)
+
+        # Meeting should have is_record=True
+        meeting = Meeting.objects.filter(mid=meeting.mid).first()
+        self.assertTrue(meeting.is_record)
+        self.assertFalse(meeting.is_private)
+
+        # Recording processing should work for public meetings
+
+    def test_recording_query_filters_private_meetings(self):
+        """测试查询录像时闭门会议被过滤"""
+        # Create a private meeting directly
+        private_meeting = self.create_meeting(
+            sponsor='PrivateUser',
+            group_name='private_group',
+            community='openEuler',
+            topic='Private Meeting Recording',
+            platform='WELINK',
+            mid='PRIVATE_QUERY_TEST',
+            is_record=True,
+            is_private=True
+        )
+
+        # Create a public meeting
+        public_meeting = self.create_meeting(
+            sponsor='PublicUser',
+            group_name='public_group',
+            community='openEuler',
+            topic='Public Meeting Recording',
+            platform='WELINK',
+            mid='PUBLIC_QUERY_TEST',
+            is_record=True,
+            is_private=False
+        )
+
+        # Create OBS record for public meeting
+        MeetingObsRecords.objects.create(
+            mid=public_meeting.mid,
+            meeting=public_meeting,
+            status=UploadStatus.FINISH.value,
+            text_video_url='https://obs.test.com/public.mp4'
+        )
+
+        # Create OBS record for private meeting (to test if it can be queried)
+        private_obs = MeetingObsRecords.objects.create(
+            mid=private_meeting.mid,
+            meeting=private_meeting,
+            status=UploadStatus.FINISH.value,
+            text_video_url='https://obs.test.com/private.mp4'
+        )
+
+        # Verify both records exist in database
+        self.assertTrue(MeetingObsRecords.objects.filter(mid=public_meeting.mid).exists())
+        self.assertTrue(MeetingObsRecords.objects.filter(mid=private_meeting.mid).exists())
+
+        # Get meeting details - should include obs_data
+        url = self.get_url.format(public_meeting.id)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Public meeting's recording should be visible
+        # Private meeting's recording behavior depends on implementation

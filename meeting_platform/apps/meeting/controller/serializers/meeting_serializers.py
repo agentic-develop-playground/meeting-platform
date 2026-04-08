@@ -21,7 +21,7 @@ from meeting.infrastructure.dao.meeting_cycle_dao import MeetingCycleDao
 from meeting.infrastructure.dao.meeting_dao import MeetingDao
 
 from meeting_platform.utils.check_params import check_field, check_invalid_content, check_email_list, check_date, \
-    check_time, check_link, check_duration
+    check_time, check_link, check_duration, check_email_in_list
 from meeting_platform.utils.common import to_anonymous_email_list
 from meeting_platform.utils.ret_api import MyValidationError
 from meeting_platform.utils.ret_code import RetCode
@@ -55,7 +55,7 @@ class MeetingSerializer(ModelSerializer):
         model = Meeting
         fields = ['id', 'sponsor', 'group_name', 'community', 'topic', 'platform', 'date', 'start', 'end',
                   'agenda', 'etherpad', 'email_list', 'mid', 'm_mid', 'join_url', 'create_time', 'update_time',
-                  'is_delete', 'is_record', 'duration', 'duration_time', 'is_cycle', 'cycle_start_date',
+                  'is_private', 'is_delete', 'is_record', 'duration', 'duration_time', 'is_cycle', 'cycle_start_date',
                   'cycle_end_date', 'cycle_start', 'cycle_end', 'cycle_type', 'cycle_interval', 'cycle_point']
         extra_kwargs = {
             'id': {'read_only': True},
@@ -75,6 +75,7 @@ class MeetingSerializer(ModelSerializer):
             'platform': {'required': True},
             'is_record': {'required': True},
 
+            'is_private': {'required': False},
             'is_cycle': {'required': False},
             'date': {'required': False},
             'start': {'required': False},
@@ -168,6 +169,13 @@ class MeetingSerializer(ModelSerializer):
             raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
         return value
 
+    def validate_is_private(self, value):
+        """check private"""
+        if not isinstance(value, bool):
+            logger.error("invalid is_private:{}".format(value))
+            raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
+        return value
+
     def validate_etherpad(self, value):
         """check etherpad"""
         if value:
@@ -243,8 +251,19 @@ class MeetingSerializer(ModelSerializer):
                 raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
 
     def validate(self, attrs):
+        if "is_private" not in attrs:
+            attrs["is_private"] = False
         if "is_cycle" not in attrs:
             attrs["is_cycle"] = False
+        if attrs["is_private"]:
+            if attrs["platform"].lower() != "welink":
+                logger.error('only wk platform support the private meeting.')
+                raise MyValidationError(RetCode.STATUS_MEETING_PRIVATE_SUPPORT_TYPE)
+            if attrs["is_cycle"]:
+                logger.error('only the not cycle meeting support the private meeting.')
+                raise MyValidationError(RetCode.STATUS_MEETING_PRIVATE_SUPPORT_CYCLE)
+            if "email_list" in attrs:
+                check_email_in_list(attrs["email_list"], settings.COMMUNITY_PRIVATE_MEETING_EMAIL_SUFFIX.get(attrs["community"]))
         if not attrs["is_cycle"]:
             check_duration(attrs["start"], attrs["end"], attrs["date"], datetime.now())
         if attrs["community"] not in settings.COMMUNITY_HOST.keys():
@@ -330,7 +349,7 @@ class SingleMeetingSerializer(ModelSerializer):
                   'agenda', 'etherpad', 'email_list', 'mid', 'm_mid', 'is_record', 'duration', 'duration_time',
                   'join_url', 'create_time', 'update_time', 'is_delete', 'is_cycle', 'cycle_start_date',
                   'cycle_end_date', 'cycle_start', 'cycle_end', 'cycle_type', 'cycle_interval', 'cycle_point',
-                  'is_notify']
+                  'is_notify', 'is_private']
         extra_kwargs = {
             'id': {'read_only': True},
             'sponsor': {'read_only': True},
@@ -349,6 +368,7 @@ class SingleMeetingSerializer(ModelSerializer):
             'topic': {'required': True},
             'is_record': {'required': True},
 
+            'is_private': {'required': False},
             'is_cycle': {'required': False},
             'date': {'required': False},
             'start': {'required': False},
@@ -413,6 +433,13 @@ class SingleMeetingSerializer(ModelSerializer):
             raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
         return value
 
+    def validate_is_private(self, value):
+        """check private"""
+        if not isinstance(value, bool):
+            logger.error("invalid is_private:{}".format(value))
+            raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
+        return value
+
     def validate_is_cycle(self, value):
         """check is_cycle"""
         if not isinstance(value, bool):
@@ -474,6 +501,25 @@ class SingleMeetingSerializer(ModelSerializer):
         if not attrs["is_cycle"]:
             check_duration(attrs["start"], attrs["end"], attrs["date"], datetime.now())
         attrs["update_time"] = datetime.now()
+        if "is_private" not in attrs:
+            attrs["is_private"] = False
+        if attrs["is_private"]:
+            # Get platform from instance if not in attrs (platform is read_only in update)
+            platform = attrs.get("platform")
+            if platform is None and self.instance:
+                platform = self.instance.platform
+            if platform and platform.lower() != "welink":
+                logger.error('only wk platform support the private meeting.')
+                raise MyValidationError(RetCode.STATUS_MEETING_PRIVATE_SUPPORT_TYPE)
+            if attrs["is_cycle"]:
+                logger.error('only the not cycle meeting support the private meeting.')
+                raise MyValidationError(RetCode.STATUS_MEETING_PRIVATE_SUPPORT_CYCLE)
+            if "email_list" in attrs:
+                # Get community from instance if not in attrs (community is read_only in update)
+                community = attrs.get("community")
+                if community is None and self.instance:
+                    community = self.instance.community
+                check_email_in_list(attrs["email_list"], settings.COMMUNITY_PRIVATE_MEETING_EMAIL_SUFFIX.get(community))
         return attrs
 
     def get_duration(self, obj):

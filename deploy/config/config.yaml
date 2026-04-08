@@ -24,3 +24,6 @@ COMMUNITY_PORTAL:
   openUBMC:
     PORTAL_EN: ""
     PORTAL_ZH: ""
+
+COMMUNITY_PRIVATE_MEETING_EMAIL_SUFFIX:
+  openUBMC: "@openubmc.org"

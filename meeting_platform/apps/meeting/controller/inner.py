@@ -71,6 +71,9 @@ class MeetingView(MySerializerParse, MyListModelMixin, ListAPIView, CreateAPIVie
         community = self.request.query_params.get("community")
         if community is not None:
             self.queryset = self.queryset.filter(community=community)
+        is_private = self.request.query_params.get("is_private")
+        if is_private is not None:
+            self.queryset = self.queryset.filter(is_private=is_private)
         meeting_ids_str = self.request.query_params.get("meeting_ids")
         if meeting_ids_str is not None:
             meeting_ids = meeting_ids_str.split(",")

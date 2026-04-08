@@ -52,6 +52,7 @@ class MeetingAction:
                     start=meeting["start"],
                     end=meeting["end"],
                     topic=meeting["topic"],
+                    is_private=meeting["is_private"],
                     is_record=meeting["is_record"]
                 )
         elif platform.lower() == ZoomApi.meeting_type:
@@ -100,6 +101,7 @@ class MeetingAction:
                     start=meeting["start"],
                     end=meeting["end"],
                     topic=meeting["topic"],
+                    is_private=meeting["is_private"],
                     is_record=meeting["is_record"],
                 )
         elif platform.lower() == ZoomApi.meeting_type:

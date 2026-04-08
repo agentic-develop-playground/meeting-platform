@@ -149,6 +149,9 @@ COMMUNITY_PORTAL = {
         'PORTAL_EN': 'https://test.openeuler.org/en'
     }
 }
+COMMUNITY_PRIVATE_MEETING_EMAIL_SUFFIX = {
+    'openEuler': '@openEuler.com'
+}
 
 # Test feature flags
 IS_UPLOAD_BILI = False  # Disable Bilibili upload in tests

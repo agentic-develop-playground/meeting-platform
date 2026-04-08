@@ -27,6 +27,10 @@ class CreateMessageKafKaAdapterImpl(MessageKafKaAdapterImpl):
 
     @func_retry()
     def send_message(self, meeting):
+        if meeting["is_private"]:
+            logger.info("[CreateMessageAdapterImpl] {} meeting is private, Please ignore."
+                        .format(meeting["community"]))
+            return
         kafka_info = self.get_client(meeting)
         if not kafka_info or not isinstance(kafka_info, dict):
             logger.info("[CreateMessageAdapterImpl] {} kafka_info config is empty, Please ignore."

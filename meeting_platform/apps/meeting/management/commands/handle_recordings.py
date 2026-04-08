@@ -136,6 +136,9 @@ class HandleRecording:
             try:
                 logger.info("start to handler the mid:{}".format(meeting_obj.mid))
                 meeting = model_to_dict(meeting_obj)
+                if meeting["is_private"]:
+                    logger.info("[HandleRecording/upload_obs] meeting({}) is the private, and skip".format(meeting["mid"]))
+                    continue
                 if meeting["is_cycle"]:
                     sub_ids = self.meeting_obs_records_dao.get_records_by_status_and_mid(meeting["mid"],
                                                                                          UploadStatus.INIT.value)
@@ -147,11 +150,11 @@ class HandleRecording:
                     meeting["sub_id"] = meeting_sub_info.sub_id
                 video_path = self._get_video_path(meeting)
                 if not video_path:
-                    logger.info("[HandleRecording/upload_all]: Find empty video_path({})".format(meeting["mid"]))
+                    logger.info("[HandleRecording/upload_obs]: Find empty video_path({})".format(meeting["mid"]))
                     continue
                 cover_path = self._get_video_cover_path(video_path, meeting)
                 if not cover_path:
-                    logger.info("[HandleRecording/upload_all]: Find empty cover_path({})".format(meeting["mid"]))
+                    logger.info("[HandleRecording/upload_obs]: Find empty cover_path({})".format(meeting["mid"]))
                     continue
                 video_path = trimmer_video(video_path, meeting["id"])
                 obs_adapter_impl = self.upload_obs_adapter_impl(meeting)
@@ -195,6 +198,9 @@ class HandleRecording:
                     meeting["start"] = meeting_sub_info.start
                     meeting["end"] = meeting_sub_info.end
                     meeting["sub_id"] = meeting_sub_info.sub_id
+                if meeting["is_private"]:
+                    logger.info("[HandleRecording/upload_bili] meeting({}) is the private, and skip".format(meeting["mid"]))
+                    continue
                 if isinstance(cache_path, defaultdict) and meeting_obj.id in cache_path.keys():
                     video_path = cache_path[meeting_obj.id]["video_path"]
                     cover_path = cache_path[meeting_obj.id]["cover_path"]

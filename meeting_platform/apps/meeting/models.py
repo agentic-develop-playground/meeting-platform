@@ -42,6 +42,7 @@ class Meeting(models.Model):
     create_time = models.DateTimeField(verbose_name='创建时间', auto_now_add=True, null=True, blank=True)
     update_time = models.DateTimeField(verbose_name='修改时间', null=True, blank=True)
     sequence = models.IntegerField(verbose_name='修改次数', default=1)
+    is_private = models.BooleanField(verbose_name='是否闭门会议', default=False)
     is_delete = models.BooleanField(verbose_name='是否删除', default=False)
 
     objects = models.Manager()
