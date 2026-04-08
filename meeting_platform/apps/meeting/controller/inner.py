@@ -269,48 +269,13 @@ class ForceEndMeetingView(GenericAPIView):
     - 周期子会议: {"meeting_id": 123, "sub_id": "xxx"}
     """
     serializer_class = EmptySerializers
-    queryset = MeetingDao.get_queryset().filter(is_delete=0)
+    app_class = MeetingApp()
 
     @capture_my_validation_exception
     def post(self, request, *args, **kwargs):
         meeting_id = request.data.get('meeting_id')
-        sub_id = request.data.get('sub_id')
-
         if not meeting_id:
             raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
-
-        meeting = self.queryset.filter(id=meeting_id).first()
-        if not meeting:
-            raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
-
-        meeting_adapter = MeetingAdapterImpl()
-        meeting_dict = model_to_dict(meeting)
-
-        if sub_id:
-            # 强制结束周期子会议
-            sub_meeting = MeetingCycleSubMeetingDao.get_all().filter(sub_id=sub_id).first()
-            if not sub_meeting:
-                raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
-
-            meeting_dict["sub_id"] = sub_id
-            meeting_adapter.force_end_meeting(meeting_dict)
-
-            # 清除子会议超时状态
-            MeetingCycleSubMeetingDao.clear_overtime_status(sub_id)
-
-            return ret_json(data={"message": "Sub meeting force ended successfully"})
-        else:
-            # 强制结束非周期会议
-            meeting_adapter.force_end_meeting(meeting_dict)
-
-            if meeting.is_cycle:
-                # 周期会议：清除所有正在进行中的子会议的超时状态
-                sub_meetings = MeetingCycleSubMeetingDao.get_by_mid(meeting.mid)
-                for sub in sub_meetings:
-                    if sub.get('is_ongoing') or sub.get('is_overtime'):
-                        MeetingCycleSubMeetingDao.clear_overtime_status(sub.get('sub_id'))
-            else:
-                # 非周期会议
-                MeetingDao.clear_overtime_status(meeting_id)
-
-            return ret_json(data={"message": "Meeting force ended successfully"})
+        sub_id = request.data.get('sub_id')
+        self.app_class.force_stop_meeting(meeting_id, sub_id)
+        return ret_json(data={"message": "Meeting force ended successfully"})

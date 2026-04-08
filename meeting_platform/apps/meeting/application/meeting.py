@@ -28,7 +28,7 @@ from meeting.infrastructure.dao.meeting_cycle_dao import MeetingCycleDao
 from meeting.infrastructure.dao.meeting_cycle_sub_dao import MeetingCycleSubMeetingDao
 from meeting.infrastructure.code_adapter.core_operators import get_cycle_date_by_policy
 
-from meeting_platform.utils.common import start_thread, get_cur_date
+from meeting_platform.utils.common import start_thread
 from meeting_platform.utils.operation_log import set_log_thread_local, log_key
 from meeting_platform.utils.ret_api import MyValidationError
 from meeting_platform.utils.ret_code import RetCode
@@ -100,17 +100,6 @@ class MeetingApp:
         if len(preferred_choice) > 0:
             return secrets.choice(preferred_choice)
         return secrets.choice(available_host_id)
-
-    @staticmethod
-    def _is_in_prepare_meeting_duration_before_meeting(meeting, check_single_meeting=False):
-        """check the start datetime of meeting is expired or lt 60minutes"""
-        if not meeting["is_cycle"] or check_single_meeting:
-            start_date_str = "{} {}".format(meeting["date"], meeting["start"])
-            start_date = datetime.datetime.strptime(start_date_str, "%Y-%m-%d %H:%M")
-            if int((start_date - get_cur_date()).total_seconds()) < 0:
-                raise MyValidationError(RetCode.STATUS_MEETING_CANNOT_BE_OPERATE_BY_EXPIRED)
-            if int((start_date - get_cur_date()).total_seconds()) < 30 * 60:
-                raise MyValidationError(RetCode.STATUS_MEETING_CANNOT_BE_OPERATE)
 
     @staticmethod
     def _check_cycle_end(meeting):
@@ -391,8 +380,6 @@ class MeetingApp:
         self._check_cycle_end(meeting)
         # check meeting-conflict
         self._get_and_check_conflict_meetings_by_date(meeting, meeting_id)
-        # check not update in the before in start date
-        self._is_in_prepare_meeting_duration_before_meeting(meeting)
         # update meeting
         resp = self.meeting_adapter_impl.update(meeting)
         meeting.update(resp)
@@ -434,7 +421,6 @@ class MeetingApp:
             }
             meeting.update(dict_data)
         # check not delete in the before in start date
-        self._is_in_prepare_meeting_duration_before_meeting(meeting)
         # delete meeting
         self.meeting_adapter_impl.delete(meeting)
         # update is_delete=1 in database
@@ -463,8 +449,6 @@ class MeetingApp:
             raise MyValidationError(RetCode.STATUS_MEETING_MODIFY_COUNT_LIMIT)
         # check meeting-conflict
         self._get_and_check_conflict_meetings_by_date(meeting, meeting["id"], check_single_meeting=True)
-        # check not update in the before in start date
-        self._is_in_prepare_meeting_duration_before_meeting(meeting, check_single_meeting=True)
         # update meeting
         self.meeting_adapter_impl.update_sub(meeting)
         # update in database
@@ -497,8 +481,6 @@ class MeetingApp:
         meeting.update(model_to_dict(sub_info))
         # check the current sub meeting count lt 1
         self.__get_meeting_sub_count(meeting["mid"])
-        # check not delete in the before in start date
-        self._is_in_prepare_meeting_duration_before_meeting(meeting, check_single_meeting=True)
         # delete meeting
         self.meeting_adapter_impl.delete_sub(meeting)
         # update is_delete=1 in database
@@ -583,6 +565,40 @@ class MeetingApp:
     def get_meeting_group_name(self, community):
         queryset = self.meeting_dao.get_meeting_group_name(community)
         return list(queryset)
+
+    def force_stop_meeting(self, meeting_id,sub_id):
+        queryset = self.meeting_dao.get_queryset().filter(is_delete=0)
+        meeting = queryset.filter(id=meeting_id).first()
+        if not meeting:
+            raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
+
+        meeting_adapter = MeetingAdapterImpl()
+        meeting_dict = model_to_dict(meeting)
+        if sub_id:
+            # 强制结束周期子会议
+            sub_meeting = MeetingCycleSubMeetingDao.get_all().filter(sub_id=sub_id).first()
+            if not sub_meeting:
+                raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
+
+            meeting_dict["sub_id"] = sub_id
+            meeting_adapter.force_end_meeting(meeting_dict)
+
+            # 清除子会议超时状态
+            MeetingCycleSubMeetingDao.clear_overtime_status(sub_id)
+        else:
+            # 强制结束非周期会议
+            meeting_adapter.force_end_meeting(meeting_dict)
+
+            if meeting.is_cycle:
+                # 周期会议：清除所有正在进行中的子会议的超时状态
+                sub_meetings = MeetingCycleSubMeetingDao.get_by_mid(meeting.mid)
+                for sub in sub_meetings:
+                    if sub.get('is_ongoing') or sub.get('is_overtime'):
+                        MeetingCycleSubMeetingDao.clear_overtime_status(sub.get('sub_id'))
+            else:
+                # 非周期会议
+                self.meeting_dao.clear_overtime_status(meeting_id)
+        return True
 
     @staticmethod
     def get_time_range_meeting(queryset, time_range):
