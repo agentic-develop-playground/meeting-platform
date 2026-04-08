@@ -177,14 +177,24 @@ class HandleRecording:
     def upload_bili(self, cache_path):
         """upload bili: get video --> upload bili"""
         meeting_obs_records = self.meeting_bili_records_dao.get_records_by_status(UploadStatus.INIT.value)
+        ids = [record.meeting_id for record in meeting_obs_records]
         start_date, end_date = self._get_valid_query_range()
-        meeting_infos = self.meeting_dao.get_meeting_by_bili_records(self.community, meeting_obs_records, start_date,
+        meeting_infos = self.meeting_dao.get_meeting_by_bili_records(self.community, ids, start_date,
                                                                      end_date)
         upload_mid = ",".join([str(i.mid) for i in meeting_infos])
         logger.info("[HandleRecording/upload_bili]: Find need to upload mid({}/{})".format(upload_mid, self.community))
         for meeting_obj in meeting_infos:
             try:
                 meeting = model_to_dict(meeting_obj)
+                if meeting["is_cycle"]:
+                    sub_ids = self.meeting_obs_records_dao.get_records_by_status_and_mid(meeting["mid"],
+                                                                                         UploadStatus.INIT.value)
+                    meeting_sub_info = self.meeting_cycle_sub_dao.get_first_by_date_range(
+                        start_date, end_date, meeting["mid"], sub_ids)
+                    meeting["date"] = meeting_sub_info.date
+                    meeting["start"] = meeting_sub_info.start
+                    meeting["end"] = meeting_sub_info.end
+                    meeting["sub_id"] = meeting_sub_info.sub_id
                 if isinstance(cache_path, defaultdict) and meeting_obj.id in cache_path.keys():
                     video_path = cache_path[meeting_obj.id]["video_path"]
                     cover_path = cache_path[meeting_obj.id]["cover_path"]
@@ -202,14 +212,8 @@ class HandleRecording:
                 if not vid:
                     raise Exception("upload bili failed")
                 logger.info("waiting the vid:{} pass".format(vid))
-                while True:
-                    all_videos = self.bili_adapter_impl.search_all_videos()
-                    if vid in all_videos:
-                        break
-                    logger.info("video:{} not passed".format(vid))
-                    time.sleep(300)
                 replay_url = self.bili_adapter_impl.get_replay_url(vid)
-                self.meeting_bili_records_dao.update_records(meeting.meeting_obj.id,
+                self.meeting_bili_records_dao.update_by_mid(meeting["mid"], meeting.get("sub_id"),
                                                              status=UploadStatus.FINISH.value,
                                                              replay_url=replay_url)
             except Exception as e:

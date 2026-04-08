@@ -25,6 +25,7 @@ class RetCodeBase:
     @classmethod
     def _is_language_en(cls):
         request_language = get_current_request()
+        print(f'request_language: {request_language}')
         if request_language == 'en':
             return True
         else:
