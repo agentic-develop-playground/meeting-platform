@@ -186,3 +186,11 @@ COMMUNITY_TRANSLATE = {
     'TOKEN': 'test-token'
 }
 COMMUNITY_ZOOM_OBS = {}
+
+# Test warning advance time (minutes)
+OVER_TIME_WARNING_ADVANCE_TIME = 30
+
+# Test operator emails configuration (for warning emails)
+OPERATOR_EMAILS = {
+    'openEuler': ['operator@test.com']
+}

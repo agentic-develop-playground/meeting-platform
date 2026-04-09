@@ -106,62 +106,11 @@ class HandleMeeting:
         for meeting in meetings:
             self.meeting_adapter_impl.force_end_meeting(model_to_dict(meeting))
 
-    def sync_meeting_status(self):
-        """同步会议状态"""
-        now = datetime.datetime.now()
-        meetings = self.meeting_dao.get_ongoing_candidates(self.community, now)
-
-        for meeting in meetings:
-            try:
-                meeting_dict = model_to_dict(meeting)
-
-                # 非周期会议
-                if not meeting.is_cycle:
-                    previous_ongoing = meeting.is_ongoing
-                    is_ongoing = self.meeting_adapter_impl.get_meeting_status(meeting_dict)
-                    self.meeting_dao.update_status(meeting.id, is_ongoing)
-                    # 如果会议从"未进行中"变为"进行中"，重置预警邮件状态
-                    if not previous_ongoing and is_ongoing:
-                        self.meeting_dao.reset_warning_email_status(meeting.id)
-                        logger.info('[sync_meeting_status] meeting {} started, reset warning_email_sent'.format(meeting.mid))
-                    # 如果会议已结束，清除超时状态
-                    if not is_ongoing and meeting.is_overtime:
-                        self.meeting_dao.clear_overtime_status(meeting.id)
-                    logger.info('[sync_meeting_status] meeting {} status updated to {}'.format(meeting.mid, is_ongoing))
-                else:
-                    # 周期会议：查询每个子会议
-                    sub_meetings = self._meeting_cycle_sub_dao.get_by_mid(meeting.mid)
-                    for sub in sub_meetings:
-                        # 只同步今天的子会议或正在进行中的子会议
-                        sub_date = sub.get('date')
-                        if sub_date != now.strftime('%Y-%m-%d') and not sub.get('is_ongoing'):
-                            continue
-                        meeting_dict["sub_id"] = sub.get('sub_id')
-                        previous_ongoing = sub.get('is_ongoing')
-                        is_ongoing = self.meeting_adapter_impl.get_meeting_status(meeting_dict)
-                        self._meeting_cycle_sub_dao.update_status(sub.get('id'), is_ongoing)
-                        # 如果子会议从"未进行中"变为"进行中"，重置预警邮件状态
-                        if not previous_ongoing and is_ongoing:
-                            self._meeting_cycle_sub_dao.reset_warning_email_status(sub.get('sub_id'))
-                            logger.info('[sync_meeting_status] sub meeting {}/{} started, reset warning_email_sent'
-                                        .format(meeting.mid, sub.get('sub_id')))
-                        # 如果子会议已结束，清除超时状态
-                        if not is_ongoing and sub.get('is_overtime'):
-                            self._meeting_cycle_sub_dao.clear_overtime_status(sub.get('sub_id'))
-                        logger.info('[sync_meeting_status] sub meeting {}/{} status updated to {}'
-                                    .format(meeting.mid, sub.get('sub_id'), is_ongoing))
-            except Exception as e:
-                logger.error("[sync_meeting_status] meeting {} error: {}, traceback: {}"
-                             .format(meeting.mid, str(e), traceback.format_exc()))
-
 
 def work_flow(handle_meeting: HandleMeeting):
     try:
-        handle_meeting.sync_meeting_status()
-    except Exception as e:
-        logger.error("[handle_meeting] sync_meeting_status:{}, traceback:{}".format(str(e), traceback.format_exc()))
-    try:
-        handle_meeting.force_stop_meeting()
+        if settings.CRONJOB_FORCE_END_MEETING:
+            handle_meeting.force_stop_meeting()
     except Exception as e:
         logger.error("[handle_meeting] force_stop_meeting:{}, traceback:{}".format(str(e), traceback.format_exc()))
     try:

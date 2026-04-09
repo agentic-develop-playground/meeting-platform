@@ -634,6 +634,7 @@ class WkApi(MeetingAdapter):
         if response.status_code != 200:
             logger.error('[WkApi] Fail to get conf token {}, and return data:{}'.format(mid,
                                                                                         response.json()))
+            return None
         logger.info('[WkApi] get detail info:{}'.format(mid))
         return response.json()
 
@@ -643,6 +644,7 @@ class WkApi(MeetingAdapter):
             raise RuntimeError("[WkApi] action must be the subclass of WkForceEndAction")
         config_info = self._get_config_token(action.mid)
         if config_info is None:
+            logger.error('[WkApi] Fail to get config info {} error'.format(action.mid))
             return None
         token = config_info['data']['token']
         headers = {
@@ -678,8 +680,8 @@ class WkApi(MeetingAdapter):
             logger.error('[WkApi] Fail to get online info, and return data:{}'.format(response.json()))
             return None
         meetings = response.json().get("data")
-        mids = [meeting["vmrConferenceID"] for meeting in meetings if meeting["vmrConferenceID"] == action.mid]
-        logger.info('[WkApi] get detail info:{}'.format(mids))
+        mids = [meeting["conferenceID"] for meeting in meetings if meeting["conferenceID"] == action.mid]
+        logger.info('[WkApi] get on processing:{}/{}'.format(action.mid, mids))
         if len(mids):
             return True
         return False

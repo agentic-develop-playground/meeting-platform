@@ -12,6 +12,7 @@ from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
 
 from meeting.domain.primitive.cycle_type import CycleType
+from meeting.domain.primitive.meeting_status import BusinessMeetingStatus
 from meeting.models import Meeting, MeetingObsRecords, MeetingCycleSubMeeting
 from meeting.infrastructure.dao.meeting_cycle_sub_dao import MeetingCycleSubMeetingDao
 from meeting.infrastructure.dao.meeting_records_bili_dao import MeetingRecordsBiliDao
@@ -30,6 +31,121 @@ from meeting_platform.utils.client.audit_client import AuditClient
 logger = logging.getLogger("log")
 
 
+class MeetingListQuerySerializer(serializers.Serializer):
+    """会议列表查询参数序列化器
+
+    用于GET请求参数验证，遵循DRF最佳实践
+    """
+    community = serializers.CharField(required=True)
+    date = serializers.CharField(required=False)
+    start_date = serializers.CharField(required=False)
+    end_date = serializers.CharField(required=False)
+    sponsor = serializers.CharField(required=False)
+    group_name = serializers.CharField(required=False)
+    platform = serializers.CharField(required=False)
+    topic = serializers.CharField(required=False)  # 新增：会议名称模糊查询
+    status = serializers.IntegerField(required=False, min_value=0, max_value=4)
+    include_private = serializers.BooleanField(required=False, default=True)
+
+    # 分页参数
+    page = serializers.IntegerField(default=1, min_value=1)
+    size = serializers.IntegerField(default=10, min_value=1, max_value=100)
+
+    # 排序参数
+    order_by = serializers.ChoiceField(
+        choices=['date', 'start', 'end', 'sponsor', 'group_name', 'platform'],
+        default='date'
+    )
+    order_type = serializers.ChoiceField(
+        choices=['asc', 'desc'],
+        default='desc'
+    )
+
+    def validate_community(self, value):
+        """验证社区名称"""
+        if value not in settings.COMMUNITY_SUPPORT:
+            logger.error("community {} is not exist in COMMUNITY_SUPPORT".format(value))
+            raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
+        return value
+
+    def validate_date(self, value):
+        """验证日期格式"""
+        if value:
+            return check_date(value).strftime('%Y-%m-%d')
+        return value
+
+    def validate_start_date(self, value):
+        """验证开始日期格式"""
+        if value:
+            return check_date(value).strftime('%Y-%m-%d')
+        return value
+
+    def validate_end_date(self, value):
+        """验证结束日期格式"""
+        if value:
+            return check_date(value).strftime('%Y-%m-%d')
+        return value
+
+
+def calculate_business_status(meeting_data, now=None):
+    """计算会议业务状态
+
+    业务状态枚举:
+    - 0: 未开始 (当前时间 < 会议开始时间 且 status=0)
+    - 1: 进行中 (会议时间段内 且 status=1)
+    - 2: 已结束 (当前时间 > 会议结束时间 且 status=2)
+    - 3: 超时 (当前时间 > 会议结束时间 且 status=1)
+    - 4: 已取消 (is_delete=True)
+
+    Args:
+        meeting_data: 包含 date, start, end, status, is_delete 字段的会议数据字典
+        now: 当前时间，用于测试时可传入
+
+    Returns:
+        int: 业务状态值 (0/1/2/3/4)
+    """
+    if now is None:
+        now = datetime.now()
+
+    # 优先判断已取消（is_delete 为 True/1/'1' 时表示已删除）
+    is_delete = meeting_data.get('is_delete')
+    if is_delete in [True, 1, '1']:
+        return BusinessMeetingStatus.CANCELLED.value
+
+    date = meeting_data.get('date')
+    start = meeting_data.get('start')
+    end = meeting_data.get('end')
+    status = meeting_data.get('status', BusinessMeetingStatus.NOT_STARTED.value)
+
+    if not date or not start or not end:
+        return BusinessMeetingStatus.NOT_STARTED.value  # 默认未开始
+
+    try:
+        meeting_start_time = datetime.strptime(f"{date} {start}", "%Y-%m-%d %H:%M")
+        meeting_end_time = datetime.strptime(f"{date} {end}", "%Y-%m-%d %H:%M")
+    except (ValueError, TypeError):
+        return BusinessMeetingStatus.NOT_STARTED.value
+
+    # 超时：当前时间 > 结束时间 且 status=1 (进行中)
+    if now > meeting_end_time and status == BusinessMeetingStatus.ONGOING.value:
+        return BusinessMeetingStatus.OVERTIME.value
+
+    # 已结束/已完成：当前时间 > 结束时间 且 status=2
+    if now > meeting_end_time and status == BusinessMeetingStatus.ENDED.value:
+        return BusinessMeetingStatus.ENDED.value
+
+    # 进行中：时间在会议时间段内 且 status=1
+    if meeting_start_time <= now <= meeting_end_time and status == BusinessMeetingStatus.ONGOING.value:
+        return BusinessMeetingStatus.ONGOING.value
+
+    # 未开始：当前时间 < 开始时间
+    if now < meeting_start_time:
+        return BusinessMeetingStatus.NOT_STARTED.value
+
+    # 默认返回数据库状态
+    return status
+
+
 # noinspection PyMethodMayBeStatic
 class MeetingSerializer(ModelSerializer):
     """MeetingSerializer for list a meeting and create meeting"""
@@ -41,9 +157,7 @@ class MeetingSerializer(ModelSerializer):
 
     duration = serializers.SerializerMethodField()
     duration_time = serializers.SerializerMethodField()
-    is_ongoing = serializers.SerializerMethodField()
-    is_overtime = serializers.SerializerMethodField()
-    overtime_detected_at = serializers.DateTimeField(read_only=True)
+    status = serializers.SerializerMethodField()
 
     cycle_start_date = serializers.CharField(required=False)
     cycle_end_date = serializers.CharField(required=False)
@@ -58,8 +172,7 @@ class MeetingSerializer(ModelSerializer):
         model = Meeting
         fields = ['id', 'sponsor', 'group_name', 'community', 'topic', 'platform', 'date', 'start', 'end',
                   'agenda', 'etherpad', 'email_list', 'mid', 'm_mid', 'join_url', 'create_time', 'update_time',
-                  'is_private', 'is_delete', 'is_record', 'duration', 'duration_time', 'is_cycle', 'is_ongoing',
-                  'is_overtime', 'overtime_detected_at',
+                  'is_private', 'is_delete', 'is_record', 'duration', 'duration_time', 'is_cycle', 'status',
                   'cycle_start_date', 'cycle_end_date', 'cycle_start', 'cycle_end', 'cycle_type', 'cycle_interval',
                   'cycle_point']
         extra_kwargs = {
@@ -299,13 +412,16 @@ class MeetingSerializer(ModelSerializer):
         if obj.start and obj.end:
             return obj.start.split(':')[0] + ':00' + '-' + str(math.ceil(float(obj.end.replace(':', '.')))) + ':00'
 
-    def get_is_ongoing(self, obj):
-        """获取会议是否正在进行中"""
-        return obj.is_ongoing
+    def get_status(self, obj):
+        """获取业务状态
 
-    def get_is_overtime(self, obj):
-        """获取会议是否超时"""
-        return obj.is_overtime
+        数据库 status 已在保存时正确计算，直接返回数据库值
+        只需要处理 is_delete=True 时返回已取消状态
+        """
+        is_delete = obj.is_delete
+        if is_delete in [True, 1, '1']:
+            return BusinessMeetingStatus.CANCELLED.value
+        return obj.status
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -345,9 +461,7 @@ class SingleMeetingSerializer(ModelSerializer):
 
     duration = serializers.SerializerMethodField()
     duration_time = serializers.SerializerMethodField()
-    is_ongoing = serializers.SerializerMethodField()
-    is_overtime = serializers.SerializerMethodField()
-    overtime_detected_at = serializers.DateTimeField(read_only=True)
+    status = serializers.SerializerMethodField()
 
     is_notify = serializers.BooleanField(required=False)
     cycle_start_date = serializers.CharField(required=False)
@@ -363,8 +477,8 @@ class SingleMeetingSerializer(ModelSerializer):
         model = Meeting
         fields = ['id', 'sponsor', 'group_name', 'community', 'topic', 'platform', 'date', 'start', 'end',
                   'agenda', 'etherpad', 'email_list', 'mid', 'm_mid', 'is_record', 'duration', 'duration_time',
-                  'join_url', 'create_time', 'update_time', 'is_delete', 'is_cycle', 'is_ongoing', 'is_overtime',
-                  'overtime_detected_at', 'cycle_start_date',
+                  'join_url', 'create_time', 'update_time', 'is_delete', 'is_cycle', 'status',
+                  'cycle_start_date',
                   'cycle_end_date', 'cycle_start', 'cycle_end', 'cycle_type', 'cycle_interval', 'cycle_point',
                   'is_notify', 'is_private']
         extra_kwargs = {
@@ -549,13 +663,16 @@ class SingleMeetingSerializer(ModelSerializer):
         if obj.start and obj.end:
             return obj.start.split(':')[0] + ':00' + '-' + str(math.ceil(float(obj.end.replace(':', '.')))) + ':00'
 
-    def get_is_ongoing(self, obj):
-        """获取会议是否正在进行中"""
-        return obj.is_ongoing
+    def get_status(self, obj):
+        """获取业务状态
 
-    def get_is_overtime(self, obj):
-        """获取会议是否超时"""
-        return obj.is_overtime
+        数据库 status 已在保存时正确计算，直接返回数据库值
+        只需要处理 is_delete=True 时返回已取消状态
+        """
+        is_delete = obj.is_delete
+        if is_delete in [True, 1, '1']:
+            return BusinessMeetingStatus.CANCELLED.value
+        return obj.status
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -664,4 +781,68 @@ class TranslateVideoTextSerializer(ModelSerializer):
 
     def validate_topic_url(self, value):
         return value
+
+
+class MeetingListSerializer(serializers.Serializer):
+    """会议列表序列化器（合并周期和非周期会议）
+
+    返回字段:
+    - id: 会议ID（周期会议为父会议ID）
+    - topic: 会议主题
+    - sponsor: 发起人
+    - group_name: SIG名称
+    - community: 社区
+    - platform: 平台
+    - date: 会议日期
+    - start: 开始时间
+    - end: 结束时间
+    - status: 业务状态（0=未开始, 1=进行中, 2=已结束, 3=超时, 4=已取消）
+    - is_cycle: 是否周期会议
+    - sub_id: 子会议ID（周期会议有值）
+    - mid: 会议ID
+    - agenda: 会议议程
+    - etherpad: 协作文档链接
+    - join_url: 会议链接
+    - cycle_start_date: 周期会议开始日期（仅周期会议）
+    - cycle_end_date: 周期会议结束日期（仅周期会议）
+    - cycle_start: 周期会议开始时间（仅周期会议）
+    - cycle_end: 周期会议结束时间（仅周期会议）
+    - cycle_type: 周期类型（仅周期会议）
+    - cycle_interval: 周期间隔（仅周期会议）
+    - cycle_point: 周期点位（仅周期会议）
+    """
+    id = serializers.IntegerField()
+    topic = serializers.CharField()
+    sponsor = serializers.CharField()
+    group_name = serializers.CharField()
+    community = serializers.CharField()
+    platform = serializers.CharField()
+    date = serializers.CharField()
+    start = serializers.CharField()
+    end = serializers.CharField()
+    status = serializers.SerializerMethodField()
+    is_cycle = serializers.BooleanField(default=False)
+    sub_id = serializers.CharField(allow_null=True, default=None)
+    mid = serializers.CharField()
+    agenda = serializers.CharField(allow_null=True, default=None)
+    etherpad = serializers.CharField(allow_null=True, default=None)
+    join_url = serializers.CharField(allow_null=True, default=None)
+    cycle_start_date = serializers.CharField(allow_null=True, default=None)
+    cycle_end_date = serializers.CharField(allow_null=True, default=None)
+    cycle_start = serializers.CharField(allow_null=True, default=None)
+    cycle_end = serializers.CharField(allow_null=True, default=None)
+    cycle_type = serializers.IntegerField(allow_null=True, default=None)
+    cycle_interval = serializers.IntegerField(allow_null=True, default=None)
+    cycle_point = serializers.ListField(allow_null=True, default=None)
+
+    def get_status(self, obj):
+        """获取业务状态
+
+        数据库 status 已在保存时正确计算，直接返回数据库值
+        只需要处理 is_delete=True 时返回已取消状态
+        """
+        is_delete = obj.get('is_delete')
+        if is_delete in [True, 1, '1']:
+            return BusinessMeetingStatus.CANCELLED.value
+        return obj.get('status')
 

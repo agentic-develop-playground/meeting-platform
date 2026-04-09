@@ -3,6 +3,7 @@
 # Copyright (c) 2026 Huawei Technologies Co., Ltd.
 from copy import deepcopy
 
+from django.conf import settings
 from django.db.models import Q
 from django.forms import model_to_dict
 
@@ -14,10 +15,9 @@ from rest_framework.permissions import IsAuthenticated
 from meeting.application.meeting import MeetingApp
 from meeting.application.obs_records_app import OBSRecordsApp
 from meeting.controller.serializers.meeting_serializers import MeetingSerializer, SingleMeetingSerializer, \
-    TranslateVideoTextSerializer, CycleSubMeetingSerializer, MeetingGroupNameSerializer
+    TranslateVideoTextSerializer, CycleSubMeetingSerializer, MeetingGroupNameSerializer, MeetingListSerializer, \
+    MeetingListQuerySerializer
 
-from meeting.infrastructure.dao.meeting_dao import MeetingDao
-from meeting.infrastructure.dao.meeting_cycle_sub_dao import MeetingCycleSubMeetingDao
 from meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl import MeetingAdapterImpl
 
 from meeting_platform.utils.customized.my_pagination import MyPagination
@@ -243,6 +243,45 @@ class MeetingGroupView(MyListModelMixin, GenericAPIView):
         return ret_json(data=data)
 
 
+class MeetingSponsorView(GenericAPIView):
+    """会议发起者查询接口
+
+    请求参数：
+    - community: 社区名称（必填）
+    - sponsor: 发起者名称模糊查询（可选）
+    - page: 页码（默认1）
+    - page_size: 每页数量（默认20，最大100）
+
+    返回字段：
+    - list: 发起者名称列表
+    - total: 总数量
+    - page: 当前页码
+    - page_size: 每页数量
+    """
+    serializer_class = EmptySerializers
+    queryset = None
+    authentication_classes = (BasicAuthentication,)
+    app_class = MeetingApp()
+
+    @capture_my_validation_exception
+    def get(self, request):
+        # 参数验证
+        community = request.query_params.get("community")
+        if not community:
+            raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
+
+        if community not in settings.COMMUNITY_SUPPORT:
+            raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
+        # 模糊查询参数
+        sponsor_keyword = request.query_params.get('sponsor')
+
+        data = self.app_class.get_meeting_sponsors(
+            community=community,
+            sponsor_keyword=sponsor_keyword,
+        )
+        return ret_json(data=data)
+
+
 class MeetingTextCallBack(MySerializerParse, CreateAPIView):
     serializer_class = TranslateVideoTextSerializer
     queryset = None
@@ -279,3 +318,77 @@ class ForceEndMeetingView(GenericAPIView):
         sub_id = request.data.get('sub_id')
         self.app_class.force_stop_meeting(meeting_id, sub_id)
         return ret_json(data={"message": "Meeting force ended successfully"})
+
+
+class MeetingListView(GenericAPIView):
+    """会议列表接口（合并周期和非周期会议）
+
+    请求参数：
+    - community: 社区名称（必填）
+    - topic: 会议名称，支持模糊查询
+    - date: 日期筛选（格式：YYYY-MM-DD）
+    - start_date: 开始日期（与end_date配合使用）
+    - end_date: 结束日期
+    - sponsor: 发起人筛选
+    - group_name: SIG筛选，支持模糊查询
+    - platform: 平台筛选
+    - status: 业务状态筛选（0-4）
+    - include_private: 是否包含私有会议，默认false
+    - page: 页码（默认1）
+    - size: 每页数量（默认20，最大100）
+    - order_by: 排序字段（可选值: date/start/end/sponsor/group_name/platform，默认date）
+    - order_type: 排序方式（可选值: asc/desc，默认asc）
+
+    返回字段：
+    - id: 会议ID（周期会议为父会议ID）
+    - topic: 会议主题
+    - sponsor: 发起人
+    - group_name: SIG名称
+    - community: 社区
+    - platform: 平台
+    - date: 会议日期
+    - start: 开始时间
+    - end: 结束时间
+    - status: 业务状态（0=未开始, 1=进行中, 2=已结束, 3=超时, 4=已取消）
+    - is_cycle: 是否周期会议
+    - sub_id: 子会议ID（周期会议有值）
+    - mid: 会议ID
+    """
+    serializer_class = MeetingListSerializer
+    query_serializer_class = MeetingListQuerySerializer
+    app_class = MeetingApp()
+
+    @capture_my_validation_exception
+    def get(self, request, *args, **kwargs):
+        # 1. 使用序列化器验证参数
+        query_serializer = self.query_serializer_class(data=request.query_params)
+        query_serializer.is_valid(raise_exception=True)
+        params = query_serializer.validated_data
+
+        # 2. 构建筛选条件
+        filters = {
+            'date': params.get('date'),
+            'start_date': params.get('start_date'),
+            'end_date': params.get('end_date'),
+            'sponsor': params.get('sponsor'),
+            'status': params.get('status'),
+            'group_name': params.get('group_name'),
+            'platform': params.get('platform'),
+            'topic': params.get('topic'),
+            'include_private': params.get('include_private', True),
+        }
+
+        # 3. 调用Application层
+        result = self.app_class.get_merged_meeting_list(
+            community=params['community'],
+            filters=filters,
+            order_by=params.get('order_by', 'date'),
+            order_type=params.get('order_type', 'desc'),
+            page=params.get('page', 1),
+            page_size=params.get('size', 10)
+        )
+
+        # 4. 序列化
+        serializer = self.serializer_class(result['list'], many=True)
+        result['list'] = serializer.data
+        return ret_json(data=result)

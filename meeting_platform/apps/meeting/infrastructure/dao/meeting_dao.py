@@ -3,6 +3,8 @@
 # Copyright (c) 2026 Huawei Technologies Co., Ltd.
 from meeting.models import Meeting
 from django.db.models import Q
+from datetime import datetime, timedelta
+from meeting.domain.primitive.meeting_status import BusinessMeetingStatus
 
 
 class MeetingDao:
@@ -47,6 +49,27 @@ class MeetingDao:
     @classmethod
     def get_meeting_group_name(cls, community):
         return cls.dao.objects.filter(community=community, is_delete=0, is_private=False).order_by("group_name").values_list("group_name", flat=True).distinct()
+
+    @classmethod
+    def get_meeting_sponsors(cls, community, sponsor_keyword=None):
+        """获取会议发起者列表
+
+        Args:
+            community: 社区名称
+            sponsor_keyword: 发起者名称模糊查询关键词（可选）
+
+        Returns:
+            QuerySet: 发起者名称列表（去重、排序）
+        """
+        query_set = cls.dao.objects.filter(
+            community=community
+        )
+
+        # 发起者名称模糊查询
+        if sponsor_keyword:
+            query_set = query_set.filter(sponsor__icontains=sponsor_keyword)
+
+        return query_set.order_by("sponsor").values_list("sponsor", flat=True).distinct()
 
     @classmethod
     def create(cls, **kwargs):
@@ -107,30 +130,24 @@ class MeetingDao:
                                                                   cycle_sub_meeting__date__lte=end_date)).all()
 
     @classmethod
-    def get_ongoing_candidates(cls, community, now):
-        """获取需要同步状态的会议
+    def get_status_sync_candidates(cls, community, now):
+        """获取大于等于今天所有需要同步状态的会议
 
-        条件：预定开始时间-10分钟 <= 现在 <= 预定结束时间+2小时，或当前状态为进行中
+        新逻辑：查询大于等于今天的所有会议，不再使用时间窗口过滤
         """
-        from datetime import datetime, timedelta
 
-        # 计算时间窗口
-        start_window = (now - timedelta(minutes=10)).strftime('%H:%M')
-        end_window = (now + timedelta(hours=2)).strftime('%H:%M')
         today = now.strftime('%Y-%m-%d')
 
         query_set = cls.dao.objects.filter(community=community, is_delete=0)
 
-        # 非周期会议：时间窗口内或正在进行中
-        non_cycle_meetings = query_set.filter(
-            is_cycle=False,
-            date=today,
-            start__lte=end_window,
-            end__gte=start_window
-        ).all()
+        # 非周期会议：大于等于今天所有会议
+        non_cycle_meetings = query_set.filter(is_cycle=False, date__gte=today).all()
 
-        # 正在进行中的会议（持续监控直到结束）
-        ongoing_meetings = query_set.filter(is_cycle=False, is_ongoing=True).all()
+        # 周期会议：大于等于今天有子会议的
+        cycle_meetings = query_set.filter(
+            is_cycle=True,
+            cycle_sub_meeting__date__gte=today
+        ).distinct().all()
 
         # 合并结果，去重
         meeting_ids = set()
@@ -139,31 +156,7 @@ class MeetingDao:
             if m.id not in meeting_ids:
                 meeting_ids.add(m.id)
                 result.append(m)
-        for m in ongoing_meetings:
-            if m.id not in meeting_ids:
-                meeting_ids.add(m.id)
-                result.append(m)
-
-        # 周期会议：查询今天有子会议在时间窗口内的
-        cycle_meetings = query_set.filter(
-            is_cycle=True,
-            cycle_sub_meeting__date=today,
-            cycle_sub_meeting__start__lte=end_window,
-            cycle_sub_meeting__end__gte=start_window
-        ).distinct().all()
-
         for m in cycle_meetings:
-            if m.id not in meeting_ids:
-                meeting_ids.add(m.id)
-                result.append(m)
-
-        # 正在进行中的周期会议
-        ongoing_cycle_meetings = query_set.filter(
-            is_cycle=True,
-            cycle_sub_meeting__is_ongoing=True
-        ).distinct().all()
-
-        for m in ongoing_cycle_meetings:
             if m.id not in meeting_ids:
                 meeting_ids.add(m.id)
                 result.append(m)
@@ -171,56 +164,30 @@ class MeetingDao:
         return result
 
     @classmethod
-    def update_status(cls, meeting_id, is_ongoing):
+    def update_status(cls, meeting_id, status):
         """更新会议状态"""
         from datetime import datetime
         return cls.dao.objects.filter(id=meeting_id).update(
-            is_ongoing=is_ongoing,
-            ongoing_updated_at=datetime.now()
+            status=status,
+            status_updated_at=datetime.now()
         )
 
     @classmethod
-    def get_overtime_meetings(cls, community, today):
-        """获取超时的非周期会议
-
-        条件：date=今天 AND end < 当前时间 AND is_ongoing=True
-        """
+    def clear_status(cls, meeting_id):
+        """清除会议状态（会议结束时调用）"""
         from datetime import datetime
-        now = datetime.now()
-        current_time = now.strftime('%H:%M')
-
-        return cls.dao.objects.filter(
-            community=community,
-            is_delete=0,
-            is_cycle=False,
-            date=today,
-            end__lt=current_time,
-            is_ongoing=True
-        ).all()
+        return cls.dao.objects.filter(id=meeting_id).update(
+            status=BusinessMeetingStatus.ENDED.value,
+            status_updated_at=datetime.now(),
+            warning_email_sent=False
+        )
 
     @classmethod
-    def update_overtime_status(cls, meeting_id, is_overtime):
-        """更新会议超时状态"""
-        from datetime import datetime
-        if is_overtime:
-            return cls.dao.objects.filter(id=meeting_id).update(
-                is_overtime=is_overtime,
-                overtime_detected_at=datetime.now()
-            )
-        else:
-            return cls.dao.objects.filter(id=meeting_id).update(
-                is_overtime=is_overtime,
-                overtime_detected_at=None
-            )
-
-    @classmethod
-    def get_upcoming_end_meetings(cls, community, today, warning_minutes=5):
+    def get_upcoming_end_meetings(cls, community, today, warning_minutes=10):
         """获取即将结束的会议（用于发送预警邮件）
 
-        条件：date=今天 AND end在当前时间到当前时间+warning_minutes之间 AND is_ongoing=True AND warning_email_sent=False
+        条件：date=今天 AND end在当前时间到当前时间+warning_minutes之间 AND status in [1,3] AND warning_email_sent=False
         """
-        from datetime import datetime, timedelta
-
         now = datetime.now()
         current_time = now.strftime('%H:%M')
         warning_time = (now + timedelta(minutes=warning_minutes)).strftime('%H:%M')
@@ -232,9 +199,78 @@ class MeetingDao:
             date=today,
             end__gte=current_time,
             end__lte=warning_time,
-            is_ongoing=True,
+            status__in=[BusinessMeetingStatus.ONGOING.value, BusinessMeetingStatus.OVERTIME.value],
             warning_email_sent=False
         ).all()
+
+    @classmethod
+    def has_subsequent_meetings(cls, community, host_id, today, current_end_time):
+        """检查当天该host_id是否有后续会议
+
+        Args:
+            community: 社区
+            host_id: 会议主持人邮箱
+            today: 今天日期
+            current_end_time: 当前会议结束时间
+
+        Returns:
+            bool: 是否有后续会议
+        """
+        return cls.dao.objects.filter(
+            community=community,
+            host_id=host_id,
+            is_delete=0,
+            is_cycle=False,
+            date=today,
+            start__gt=current_end_time  # 开始时间 > 当前会议结束时间
+        ).exists()
+
+    @classmethod
+    def get_ongoing_meetings_for_warning(cls, community, today):
+        """获取当天所有需要预警检查的会议（进行中/超时且未发送预警）
+
+        注意：不再限制结束时间窗口，由业务逻辑动态判断预警时机
+        """
+        from datetime import datetime
+
+        now = datetime.now()
+        current_time = now.strftime('%H:%M')
+
+        return cls.dao.objects.filter(
+            community=community,
+            is_delete=0,
+            is_cycle=False,
+            date=today,
+            end__gte=current_time,  # 结束时间 >= 当前时间（会议未结束）
+            status__in=[BusinessMeetingStatus.ONGOING.value, BusinessMeetingStatus.OVERTIME.value],
+            warning_email_sent=False
+        ).all()
+
+    @classmethod
+    def get_next_meeting_start_time(cls, community, host_id, today, current_end_time):
+        """获取当天该host_id的下一场会议的开始时间
+
+        Args:
+            community: 社区
+            host_id: 会议主持人邮箱
+            today: 今天日期
+            current_end_time: 当前会议结束时间
+
+        Returns:
+            str: 下一场会议的开始时间 (HH:MM)，如果没有后续会议返回 None
+        """
+        next_meeting = cls.dao.objects.filter(
+            community=community,
+            host_id=host_id,
+            is_delete=0,
+            is_cycle=False,
+            date=today,
+            start__gt=current_end_time
+        ).order_by('start').first()
+
+        if next_meeting:
+            return next_meeting.start
+        return None
 
     @classmethod
     def mark_warning_email_sent(cls, meeting_id):
@@ -247,13 +283,112 @@ class MeetingDao:
         return cls.dao.objects.filter(id=meeting_id).update(warning_email_sent=False)
 
     @classmethod
-    def clear_overtime_status(cls, meeting_id):
-        """清除超时状态（会议正常结束或强制结束时调用）"""
-        from datetime import datetime
-        return cls.dao.objects.filter(id=meeting_id).update(
-            is_overtime=False,
-            overtime_detected_at=None,
-            is_ongoing=False,
-            ongoing_updated_at=datetime.now(),
-            warning_email_sent=False
+    def get_non_cycle_meetings(cls, community, filters):
+        """获取非周期会议列表（用于合并会议列表接口）
+
+        返回ValuesQuerySet，字段与周期子会议一致，便于UNION合并
+        """
+        from django.db.models import Value, CharField
+
+        query_set = cls.dao.objects.filter(
+            community=community,
+            is_cycle=False
         )
+
+        # 状态过滤
+        status_filter = filters.get('status')
+        if status_filter is not None and status_filter != BusinessMeetingStatus.CANCELLED.value:
+            # 用数据库 status 字段筛选
+            query_set = query_set.filter(status=status_filter).filter(is_delete=0)
+        elif status_filter == BusinessMeetingStatus.CANCELLED.value:
+            # 已取消状态用 is_delete 筛选
+            query_set = query_set.filter(is_delete=1)
+
+        # 日期筛选
+        date = filters.get('date')
+        if date:
+            query_set = query_set.filter(date=date)
+
+        start_date = filters.get('start_date')
+        end_date = filters.get('end_date')
+        if start_date and end_date:
+            query_set = query_set.filter(date__gte=start_date, date__lte=end_date)
+
+        # 发起人筛选
+        sponsor = filters.get('sponsor')
+        if sponsor:
+            sponsor = sponsor.split(",")
+            query_set = query_set.filter(sponsor__in=sponsor)
+
+        # SIG筛选
+        group_name = filters.get('group_name')
+        if group_name:
+            query_set = query_set.filter(group_name__icontains=group_name)
+
+        # 平台筛选
+        platform = filters.get('platform')
+        if platform:
+            query_set = query_set.filter(platform=platform)
+
+        # topic模糊查询
+        topic = filters.get('topic')
+        if topic:
+            query_set = query_set.filter(topic__icontains=topic)
+
+        # 私有会议过滤
+        if not filters.get('include_private'):
+            query_set = query_set.filter(is_private=False)
+
+        # 添加sub_id=None标记，is_cycle字段已存在于模型中
+        return query_set.annotate(
+            sub_id=Value(None, output_field=CharField())
+        ).values(
+            'id', 'topic', 'sponsor', 'group_name', 'community', 'platform',
+            'date', 'start', 'end', 'status', 'is_cycle', 'mid','is_delete',
+            'agenda', 'etherpad', 'join_url', 'sub_id',
+        )
+
+    @classmethod
+    def get_non_cycle_meetings_count(cls, community, filters):
+        """获取非周期会议总数（用于分页计算）"""
+        query_set = cls.dao.objects.filter(
+            community=community,
+            is_delete=0,
+            is_cycle=False
+        )
+
+        # 日期筛选
+        date = filters.get('date')
+        if date:
+            query_set = query_set.filter(date=date)
+
+        start_date = filters.get('start_date')
+        end_date = filters.get('end_date')
+        if start_date and end_date:
+            query_set = query_set.filter(date__gte=start_date, date__lte=end_date)
+
+        # 发起人筛选
+        sponsor = filters.get('sponsor')
+        if sponsor:
+            query_set = query_set.filter(sponsor=sponsor)
+
+        # SIG筛选
+        group_name = filters.get('group_name')
+        if group_name:
+            query_set = query_set.filter(group_name__icontains=group_name)
+
+        # 平台筛选
+        platform = filters.get('platform')
+        if platform:
+            query_set = query_set.filter(platform=platform)
+
+        # topic模糊查询
+        topic = filters.get('topic')
+        if topic:
+            query_set = query_set.filter(topic__icontains=topic)
+
+        # 私有会议过滤
+        if not filters.get('include_private'):
+            query_set = query_set.filter(is_private=False)
+
+        return query_set.count()

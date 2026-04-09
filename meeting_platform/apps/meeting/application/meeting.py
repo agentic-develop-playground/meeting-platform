@@ -15,6 +15,7 @@ from django.db import transaction
 from meeting.domain.primitive.upload_status import UploadStatus
 from meeting.domain.primitive.time_range import TimeRange
 from meeting.domain.primitive.cycle_type import CycleType
+from meeting.domain.primitive.meeting_status import BusinessMeetingStatus
 from meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl import MeetingAdapterImpl
 from meeting.infrastructure.adapter.message_adapter_impl.email_adapter_impl import CreateMessageEmailAdapterImpl, \
     DeleteMessageEmailAdapterImpl, UpdateMessageEmailAdapterImpl, DeleteSubMessageEmailAdapterImpl, \
@@ -566,6 +567,19 @@ class MeetingApp:
         queryset = self.meeting_dao.get_meeting_group_name(community)
         return list(queryset)
 
+    def get_meeting_sponsors(self, community, sponsor_keyword=None):
+        """获取会议发起者列表（支持分页）
+
+        Args:
+            community: 社区名称
+            sponsor_keyword: 发起者名称模糊查询关键词
+
+        Returns:
+            dict: [...]
+        """
+        queryset = self.meeting_dao.get_meeting_sponsors(community, sponsor_keyword)
+        return list(queryset)
+
     def force_stop_meeting(self, meeting_id,sub_id):
         queryset = self.meeting_dao.get_queryset().filter(is_delete=0)
         meeting = queryset.filter(id=meeting_id).first()
@@ -583,21 +597,21 @@ class MeetingApp:
             meeting_dict["sub_id"] = sub_id
             meeting_adapter.force_end_meeting(meeting_dict)
 
-            # 清除子会议超时状态
-            MeetingCycleSubMeetingDao.clear_overtime_status(sub_id)
+            # 清除子会议状态（标记为已结束）
+            MeetingCycleSubMeetingDao.clear_status(sub_id)
         else:
             # 强制结束非周期会议
             meeting_adapter.force_end_meeting(meeting_dict)
 
             if meeting.is_cycle:
-                # 周期会议：清除所有正在进行中的子会议的超时状态
+                # 周期会议：清除所有正在进行中的子会议的状态
                 sub_meetings = MeetingCycleSubMeetingDao.get_by_mid(meeting.mid)
                 for sub in sub_meetings:
-                    if sub.get('is_ongoing') or sub.get('is_overtime'):
-                        MeetingCycleSubMeetingDao.clear_overtime_status(sub.get('sub_id'))
+                    if sub.get('status') == BusinessMeetingStatus.ONGOING.value:  # 进行中
+                        MeetingCycleSubMeetingDao.clear_status(sub.get('sub_id'))
             else:
                 # 非周期会议
-                self.meeting_dao.clear_overtime_status(meeting_id)
+                self.meeting_dao.clear_status(meeting_id)
         return True
 
     @staticmethod
@@ -626,3 +640,79 @@ class MeetingApp:
                                                            ))),
         }
         return queryset_data.get(time_range_domain.value)
+
+    def get_merged_meeting_list(self, community, filters, order_by='date', order_type='asc', page=1, page_size=10):
+        """获取合并后的会议列表（展开周期子会议）
+
+        Args:
+            community: 社区名称（必填）
+            filters: 筛选条件字典
+            order_by: 排序字段
+            order_type: 排序方式（asc/desc）
+            page: 页码
+            page_size: 每页数量
+
+        Returns:
+            dict: {'total': total, 'list': [...], 'page': page, 'page_size': page_size}
+        """
+        # 验证并修正参数
+        if page < 1:
+            page = 1
+        if page_size < 1 or page_size > 100:
+            page_size = 10
+
+        valid_order_fields = ['date', 'start', 'end', 'sponsor', 'group_name', 'platform']
+        if order_by not in valid_order_fields:
+            order_by = 'date'
+
+        # 获取非周期会议QuerySet
+        non_cycle_qs = self.meeting_dao.get_non_cycle_meetings(community, filters)
+
+        # 获取周期子会议QuerySet
+        cycle_sub_qs = self.meeting_cycle_sub_dao.get_expanded_sub_meetings_queryset(community, filters)
+
+        # 使用union合并两个查询
+        # 注意：union后的QuerySet不能再进行filter，但可以进行order_by和切片
+        merged_qs = non_cycle_qs.union(cycle_sub_qs)
+
+        # 计算总数（在union后计算）
+        total = len(merged_qs)
+
+        # 构建排序
+        if order_type == 'desc':
+            order_field = f'-{order_by}'
+        else:
+            order_field = order_by
+
+        # 排序并分页
+        # 注意：union后的QuerySet排序需要使用相同的字段名
+        offset = (page - 1) * page_size
+        merged_qs = merged_qs.order_by(order_field, 'start')[offset:offset + page_size]
+
+        # 返回字典列表
+        meeting_list = list(merged_qs)
+
+        # 批量获取周期会议的 MeetingCycleDate（避免 N+1 查询）
+        cycle_mid = [m['mid'] for m in meeting_list if m.get('is_cycle')]
+        if cycle_mid:
+            cycle_dates = MeetingCycleDao.get_by_mids(cycle_mid)
+            cycle_date_map = {cd.mid: cd for cd in cycle_dates}
+
+            for m in meeting_list:
+                if m.get('is_cycle'):
+                    cd = cycle_date_map.get(m['mid'])
+                    if cd:
+                        m['cycle_start_date'] = cd.start_date
+                        m['cycle_end_date'] = cd.end_date
+                        m['cycle_start'] = cd.start
+                        m['cycle_end'] = cd.end
+                        m['cycle_type'] = cd.cycle_type
+                        m['cycle_interval'] = cd.interval
+                        m['cycle_point'] = cd.point.split(',') if cd.point else None
+
+        return {
+            'total': total,
+            'list': meeting_list,
+            'page': page,
+            'size': page_size
+        }
