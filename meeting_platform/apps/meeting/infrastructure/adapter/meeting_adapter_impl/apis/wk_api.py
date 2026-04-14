@@ -26,7 +26,7 @@ logger = logging.getLogger('log')
 class WkApi(MeetingAdapter):
     meeting_type = "welink"  # it is platform
 
-    proxy_token_path = "/v1/usg/acs/auth/proxy"
+    proxy_token_path = "/v1/usg/acs/auth/proxy"  # nosec B105 # API path, not password
     create_path = "/v1/mmc/management/conferences"
     create_cycle_path = "/v1/mmc/management/cycleconferences"
     update_path = "/v1/mmc/management/conferences"
@@ -40,7 +40,7 @@ class WkApi(MeetingAdapter):
     download_url_path = "/v1/mmc/management/record/downloadurls"
     list_recordings_path = "/v1/mmc/management/record/files"
     detail_meeting_path = "/v1/mmc/management/conferences/confDetail"
-    get_conf_token_path = "/v1/mmc/control/conferences/token"
+    get_conf_token_path = "/v1/mmc/control/conferences/token"  # nosec B105 # API path, not password
     force_end_path = "/v1/mmc/control/conferences/stop"
     get_online_path = "/v1/mmc/management/conferences/online"
 
@@ -572,7 +572,7 @@ class WkApi(MeetingAdapter):
         if not waiting_download_recordings:
             logger.info('[WkApi/_download_video] {}/{} filter to no available recordings'.
                         format(self.community, mid))
-            return
+            return None
         token = waiting_download_recordings[-1]['token']
         download_url = waiting_download_recordings[-1]['url']
         target_filename = get_video_path(mid, self.community)
@@ -587,13 +587,13 @@ class WkApi(MeetingAdapter):
         if not recordings:
             logger.info('[WkApi/get_video] {} filter to no available recordings which mid is：{}'
                         .format(self.community, action.mid))
-            return
+            return None
         video_path = self._download_video(action, recordings)
         logger.info("the current video size {}/{}".format(os.path.getsize(video_path), self.bili_video_min_size))
         if os.path.getsize(video_path) < self.bili_video_min_size:
             logger.info('[WkApi/get_video] {} filter to size lt the min size {} which mid is：{}'
                         .format(self.community, self.bili_video_min_size, action.mid))
-            return
+            return None
         return video_path
 
     def _get_detail_info(self, mid):

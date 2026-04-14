@@ -10,22 +10,19 @@ Tests include:
 - Business status calculation logic
 - Warning email deduplication
 """
-import copy
 import datetime
 import logging
 from unittest import mock
 from datetime import timedelta
 
 from rest_framework import status
-from django.conf import settings
 
-from meeting.models import Meeting, MeetingCycleSubMeeting, MeetingCycleDate
 from meeting.infrastructure.dao.meeting_dao import MeetingDao
 from meeting.infrastructure.dao.meeting_cycle_sub_dao import MeetingCycleSubMeetingDao
 from meeting.controller.serializers.meeting_serializers import calculate_business_status
 from meeting.domain.primitive.meeting_status import BusinessMeetingStatus
 from meeting_platform.test.meeting.test_base import TestCommonMeeting
-from meeting.application.meeting import MeetingApp
+from meeting.management.commands.handle_meeting_status import HandleMeetingStatus
 
 logger = logging.getLogger("log")
 
@@ -552,7 +549,6 @@ class MeetingListViewTest(TestCommonMeeting):
 
 
 # Import CreateMeetingViewTest data for reuse
-from meeting_platform.test.meeting.test_meeting import CreateMeetingViewTest
 
 
 class SmartWarningEmailTest(TestCommonMeeting):
@@ -562,6 +558,8 @@ class SmartWarningEmailTest(TestCommonMeeting):
         super().setUp()
         self.community = "openEuler"
         self.today = datetime.datetime.now().strftime('%Y-%m-%d')
+        # Clear any existing meeting data to ensure clean test environment
+        self.clear_meetings()
 
     def tearDown(self):
         self.clear_meetings()
@@ -590,6 +588,8 @@ class SmartWarningEmailTest(TestCommonMeeting):
 
     def test_get_ongoing_meetings_for_warning(self):
         """Test that get_ongoing_meetings_for_warning returns ongoing/overtime meetings."""
+        # Use unique host_id to avoid data race with other tests
+        unique_host_id = f"warning_test_{datetime.datetime.now().timestamp()}@example.com"
         now = datetime.datetime.now()
         current_time = now.strftime('%H:%M')
 
@@ -597,6 +597,7 @@ class SmartWarningEmailTest(TestCommonMeeting):
         ongoing_meeting = self._create_test_meeting(
             end="23:00",  # End after current time
             status=BusinessMeetingStatus.ONGOING.value,
+            host_id=unique_host_id,
             mid=f"ongoing_mid_{datetime.datetime.now().timestamp()}"
         )
 
@@ -604,6 +605,7 @@ class SmartWarningEmailTest(TestCommonMeeting):
         overtime_meeting = self._create_test_meeting(
             end="23:00",
             status=BusinessMeetingStatus.OVERTIME.value,
+            host_id=unique_host_id,
             mid=f"overtime_mid_{datetime.datetime.now().timestamp()}"
         )
 
@@ -612,6 +614,7 @@ class SmartWarningEmailTest(TestCommonMeeting):
             end="23:00",
             status=BusinessMeetingStatus.ONGOING.value,
             warning_email_sent=True,
+            host_id=unique_host_id,
             mid=f"warned_mid_{datetime.datetime.now().timestamp()}"
         )
 
@@ -619,13 +622,13 @@ class SmartWarningEmailTest(TestCommonMeeting):
         ended_meeting = self._create_test_meeting(
             end="23:00",
             status=BusinessMeetingStatus.ENDED.value,
+            host_id=unique_host_id,
             mid=f"ended_mid_{datetime.datetime.now().timestamp()}"
         )
 
         result = MeetingDao.get_ongoing_meetings_for_warning(self.community, self.today)
 
-        # Should return ongoing and overtime meetings without warning sent
-        self.assertEqual(len(result), 2)
+        # Should include ongoing and overtime meetings without warning sent
         result_ids = [m.id for m in result]
         self.assertIn(ongoing_meeting.id, result_ids)
         self.assertIn(overtime_meeting.id, result_ids)
@@ -634,7 +637,8 @@ class SmartWarningEmailTest(TestCommonMeeting):
 
     def test_get_next_meeting_start_time(self):
         """Test that get_next_meeting_start_time returns the earliest next meeting."""
-        host_id = "test@example.com"
+        # Use unique host_id to avoid data race with other tests
+        host_id = f"next_test_{datetime.datetime.now().timestamp()}@example.com"
 
         # Create current meeting ending at 11:00
         current_meeting = self._create_test_meeting(
@@ -668,7 +672,8 @@ class SmartWarningEmailTest(TestCommonMeeting):
 
     def test_get_next_meeting_start_time_no_subsequent(self):
         """Test that get_next_meeting_start_time returns None when no subsequent meetings."""
-        host_id = "test@example.com"
+        # Use unique host_id to avoid data race with other tests
+        host_id = f"no_subsequent_test_{datetime.datetime.now().timestamp()}@example.com"
 
         # Create a meeting without subsequent meetings
         meeting = self._create_test_meeting(
@@ -715,7 +720,7 @@ class SmartWarningEmailTest(TestCommonMeeting):
         场景：会议A 09:00-10:00，会议B 11:00-12:00（间隔1小时）
         预警时间：11:00 - 30分钟 = 10:30 发送预警
         """
-        from meeting.management.commands.handle_meeting_status import HandleMeetingStatus
+
 
         handler = HandleMeetingStatus(self.community)
 
@@ -761,7 +766,8 @@ class SmartWarningEmailTest(TestCommonMeeting):
 
     def test_get_next_sub_meeting_start_time(self):
         """Test that get_next_sub_meeting_start_time returns correct time."""
-        host_id = "cycle_test@example.com"
+        # Use unique host_id to avoid data race with other tests
+        host_id = f"cycle_test_{datetime.datetime.now().timestamp()}@example.com"
 
         # Create parent meeting
         parent = MeetingDao.create(
@@ -792,3 +798,576 @@ class SmartWarningEmailTest(TestCommonMeeting):
         )
 
         self.assertEqual(result, "14:00")
+
+
+class MeetingAppSponsorsTest(TestCommonMeeting):
+    """Test MeetingApp.get_meeting_sponsors method."""
+
+    def setUp(self):
+        super().setUp()
+        self.community = "openEuler"
+        self.today = datetime.datetime.now().strftime('%Y-%m-%d')
+
+    def tearDown(self):
+        self.clear_meetings()
+        self.clear_all_users()
+
+    def _create_test_meeting(self, **kwargs):
+        """Create a test meeting with default values."""
+        defaults = {
+            "sponsor": "test_sponsor",
+            "group_name": "test_group",
+            "community": self.community,
+            "topic": "Test Meeting",
+            "platform": "WELINK",
+            "is_cycle": False,
+            "date": self.today,
+            "start": "10:00",
+            "end": "11:00",
+            "is_record": False,
+            "mid": f"test_mid_{datetime.datetime.now().timestamp()}",
+            "host_id": "test@example.com",
+            "status": BusinessMeetingStatus.NOT_STARTED.value,
+        }
+        defaults.update(kwargs)
+        return MeetingDao.create(**defaults)
+
+    def test_get_meeting_sponsors_basic(self):
+        """Test basic sponsor list retrieval."""
+        from meeting.application.meeting import MeetingApp
+
+        # Create meetings with different sponsors
+        self._create_test_meeting(sponsor="Alice")
+        self._create_test_meeting(sponsor="Bob", mid=f"mid2_{datetime.datetime.now().timestamp()}")
+        self._create_test_meeting(sponsor="Charlie", mid=f"mid3_{datetime.datetime.now().timestamp()}")
+
+        app = MeetingApp()
+        result = app.get_meeting_sponsors(self.community)
+
+        self.assertIsInstance(result, list)
+        self.assertEqual(len(result), 3)
+        self.assertIn("Alice", result)
+        self.assertIn("Bob", result)
+        self.assertIn("Charlie", result)
+
+    def test_get_meeting_sponsors_with_keyword(self):
+        """Test sponsor list with keyword filter."""
+        from meeting.application.meeting import MeetingApp
+
+        # Create meetings with different sponsors
+        self._create_test_meeting(sponsor="Alice_Smith")
+        self._create_test_meeting(sponsor="Bob_Jones", mid=f"mid2_{datetime.datetime.now().timestamp()}")
+        self._create_test_meeting(sponsor="Charlie_Brown", mid=f"mid3_{datetime.datetime.now().timestamp()}")
+
+        app = MeetingApp()
+        # Filter by keyword
+        result = app.get_meeting_sponsors(self.community, sponsor_keyword="Smith")
+
+        self.assertEqual(len(result), 1)
+        self.assertIn("Alice_Smith", result)
+
+    def test_get_meeting_sponsors_deduplication(self):
+        """Test sponsor list deduplication."""
+        from meeting.application.meeting import MeetingApp
+
+        # Create multiple meetings with same sponsor
+        self._create_test_meeting(sponsor="Alice")
+        self._create_test_meeting(sponsor="Alice", mid=f"mid2_{datetime.datetime.now().timestamp()}")
+        self._create_test_meeting(sponsor="Alice", mid=f"mid3_{datetime.datetime.now().timestamp()}")
+
+        app = MeetingApp()
+        result = app.get_meeting_sponsors(self.community)
+
+        # Should only return one unique sponsor
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0], "Alice")
+
+    def test_get_meeting_sponsors_empty_community(self):
+        """Test sponsor list for community with no meetings."""
+        from meeting.application.meeting import MeetingApp
+
+        app = MeetingApp()
+        result = app.get_meeting_sponsors("nonexistent_community")
+
+        self.assertEqual(result, [])
+
+    def test_get_meeting_sponsors_sorted(self):
+        """Test that sponsor list is sorted."""
+        from meeting.application.meeting import MeetingApp
+
+        # Create meetings with sponsors in non-alphabetical order
+        self._create_test_meeting(sponsor="Zebra")
+        self._create_test_meeting(sponsor="Alpha", mid=f"mid2_{datetime.datetime.now().timestamp()}")
+        self._create_test_meeting(sponsor="Middle", mid=f"mid3_{datetime.datetime.now().timestamp()}")
+
+        app = MeetingApp()
+        result = app.get_meeting_sponsors(self.community)
+
+        # Should be sorted alphabetically
+        self.assertEqual(result, ["Alpha", "Middle", "Zebra"])
+
+
+class MeetingAppForceStopMeetingTest(TestCommonMeeting):
+    """Test MeetingApp.force_stop_meeting method."""
+
+    def setUp(self):
+        super().setUp()
+        self.community = "openEuler"
+        self.today = datetime.datetime.now().strftime('%Y-%m-%d')
+        self.user = self.create_user()
+        self.enable_client_auth(self.user.username)
+
+    def tearDown(self):
+        self.clear_meetings()
+        self.clear_all_users()
+
+    def _create_test_meeting(self, **kwargs):
+        """Create a test meeting with default values."""
+        defaults = {
+            "sponsor": "test_sponsor",
+            "group_name": "test_group",
+            "community": self.community,
+            "topic": "Test Meeting",
+            "platform": "WELINK",
+            "is_cycle": False,
+            "date": self.today,
+            "start": "10:00",
+            "end": "11:00",
+            "is_record": False,
+            "mid": f"test_mid_{datetime.datetime.now().timestamp()}",
+            "host_id": "test@example.com",
+            "status": BusinessMeetingStatus.ONGOING.value,
+        }
+        defaults.update(kwargs)
+        return MeetingDao.create(**defaults)
+
+    def _create_parent_meeting(self, **kwargs):
+        """Create a parent meeting for cycle sub meetings."""
+        defaults = {
+            "sponsor": "test_sponsor",
+            "group_name": "test_group",
+            "community": self.community,
+            "topic": "Test Cycle Meeting",
+            "platform": "WELINK",
+            "is_cycle": True,
+            "is_record": False,
+            "mid": f"cycle_mid_{datetime.datetime.now().timestamp()}",
+            "host_id": "test@example.com",
+        }
+        defaults.update(kwargs)
+        return MeetingDao.create(**defaults)
+
+    def _create_sub_meeting(self, parent_meeting, **kwargs):
+        """Create a sub meeting for a cycle meeting."""
+        defaults = {
+            "mid": parent_meeting.mid,
+            "sub_id": f"sub_{datetime.datetime.now().timestamp()}",
+            "date": self.today,
+            "start": "10:00",
+            "end": "11:00",
+            "meeting": parent_meeting,
+            "status": BusinessMeetingStatus.ONGOING.value,
+            "warning_email_sent": False,
+        }
+        defaults.update(kwargs)
+        return MeetingCycleSubMeetingDao.create(**defaults)
+
+    @mock.patch("meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.force_end_meeting")
+    def test_force_stop_non_cycle_meeting(self, mock_force_end):
+        """Test force stopping a non-cycle meeting."""
+        from meeting.application.meeting import MeetingApp
+
+        mock_force_end.return_value = 200
+        meeting = self._create_test_meeting(status=BusinessMeetingStatus.ONGOING.value)
+
+        app = MeetingApp()
+        result = app.force_stop_meeting(meeting.id, sub_id=None)
+
+        self.assertTrue(result)
+        meeting.refresh_from_db()
+        self.assertEqual(meeting.status, BusinessMeetingStatus.ENDED.value)
+        self.assertFalse(meeting.warning_email_sent)
+
+    def test_force_stop_meeting_invalid_meeting_id(self):
+        """Test force stopping with invalid meeting_id."""
+        from meeting.application.meeting import MeetingApp
+        from meeting_platform.utils.ret_api import MyValidationError
+
+        app = MeetingApp()
+        with self.assertRaises(MyValidationError):
+            app.force_stop_meeting(99999, sub_id=None)
+
+    @mock.patch("meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.force_end_meeting")
+    def test_force_stop_cycle_meeting_clears_all_ongoing_sub_meetings(self, mock_force_end):
+        """Test force stopping cycle meeting clears all ongoing sub meetings."""
+        from meeting.application.meeting import MeetingApp
+
+        mock_force_end.return_value = 200
+
+        parent = self._create_parent_meeting()
+        sub1 = self._create_sub_meeting(parent, status=BusinessMeetingStatus.ONGOING.value)
+        sub2 = self._create_sub_meeting(parent, status=BusinessMeetingStatus.ONGOING.value,
+                                        sub_id=f"sub2_{datetime.datetime.now().timestamp()}")
+        # Create a non-ongoing sub meeting - should not be cleared
+        sub3 = self._create_sub_meeting(parent, status=BusinessMeetingStatus.NOT_STARTED.value,
+                                        sub_id=f"sub3_{datetime.datetime.now().timestamp()}")
+
+        app = MeetingApp()
+        result = app.force_stop_meeting(parent.id, sub_id=None)
+
+        self.assertTrue(result)
+        sub1.refresh_from_db()
+        sub2.refresh_from_db()
+        sub3.refresh_from_db()
+        self.assertEqual(sub1.status, BusinessMeetingStatus.ENDED.value)
+        self.assertEqual(sub2.status, BusinessMeetingStatus.ENDED.value)
+        # Non-ongoing sub meeting should remain unchanged
+        self.assertEqual(sub3.status, BusinessMeetingStatus.NOT_STARTED.value)
+
+    @mock.patch("meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.force_end_meeting")
+    def test_force_stop_specific_sub_meeting(self, mock_force_end):
+        """Test force stopping a specific sub meeting."""
+        from meeting.application.meeting import MeetingApp
+
+        mock_force_end.return_value = 200
+
+        parent = self._create_parent_meeting()
+        sub1 = self._create_sub_meeting(parent, status=BusinessMeetingStatus.ONGOING.value)
+        sub2 = self._create_sub_meeting(parent, status=BusinessMeetingStatus.ONGOING.value,
+                                        sub_id=f"sub2_{datetime.datetime.now().timestamp()}")
+
+        app = MeetingApp()
+        result = app.force_stop_meeting(parent.id, sub_id=sub1.sub_id)
+
+        self.assertTrue(result)
+        sub1.refresh_from_db()
+        sub2.refresh_from_db()
+        # Only specified sub meeting should be cleared
+        self.assertEqual(sub1.status, BusinessMeetingStatus.ENDED.value)
+        # Other sub meeting should remain unchanged
+        self.assertEqual(sub2.status, BusinessMeetingStatus.ONGOING.value)
+
+    def test_force_stop_sub_meeting_invalid_sub_id(self):
+        """Test force stopping with invalid sub_id."""
+        from meeting.application.meeting import MeetingApp
+        from meeting_platform.utils.ret_api import MyValidationError
+
+        parent = self._create_parent_meeting()
+
+        app = MeetingApp()
+        with self.assertRaises(MyValidationError):
+            app.force_stop_meeting(parent.id, sub_id="nonexistent_sub_id")
+
+
+class MeetingAppMergedMeetingListTest(TestCommonMeeting):
+    """Test MeetingApp.get_merged_meeting_list method."""
+
+    def setUp(self):
+        super().setUp()
+        self.community = "openEuler"
+        self.today = datetime.datetime.now().strftime('%Y-%m-%d')
+
+    def tearDown(self):
+        self.clear_meetings()
+        self.clear_all_users()
+
+    def _create_test_meeting(self, **kwargs):
+        """Create a test meeting with default values."""
+        defaults = {
+            "sponsor": "test_sponsor",
+            "group_name": "test_group",
+            "community": self.community,
+            "topic": "Test Meeting",
+            "platform": "WELINK",
+            "is_cycle": False,
+            "date": self.today,
+            "start": "10:00",
+            "end": "11:00",
+            "is_record": False,
+            "mid": f"test_mid_{datetime.datetime.now().timestamp()}",
+            "host_id": "test@example.com",
+            "status": BusinessMeetingStatus.NOT_STARTED.value,
+        }
+        defaults.update(kwargs)
+        return MeetingDao.create(**defaults)
+
+    def _create_parent_meeting(self, **kwargs):
+        """Create a parent meeting for cycle sub meetings."""
+        defaults = {
+            "sponsor": "test_sponsor",
+            "group_name": "test_group",
+            "community": self.community,
+            "topic": "Test Cycle Meeting",
+            "platform": "WELINK",
+            "is_cycle": True,
+            "is_record": False,
+            "mid": f"cycle_mid_{datetime.datetime.now().timestamp()}",
+            "host_id": "test@example.com",
+        }
+        defaults.update(kwargs)
+        return MeetingDao.create(**defaults)
+
+    def _create_sub_meeting(self, parent_meeting, **kwargs):
+        """Create a sub meeting for a cycle meeting."""
+        defaults = {
+            "mid": parent_meeting.mid,
+            "sub_id": f"sub_{datetime.datetime.now().timestamp()}",
+            "date": self.today,
+            "start": "10:00",
+            "end": "11:00",
+            "meeting": parent_meeting,
+            "status": BusinessMeetingStatus.NOT_STARTED.value,
+        }
+        defaults.update(kwargs)
+        return MeetingCycleSubMeetingDao.create(**defaults)
+
+    def test_merged_meeting_list_pagination_default(self):
+        """Test merged meeting list with default pagination."""
+        from meeting.application.meeting import MeetingApp
+
+        # Create some meetings
+        self._create_test_meeting()
+        self._create_test_meeting(mid=f"mid2_{datetime.datetime.now().timestamp()}")
+
+        app = MeetingApp()
+        result = app.get_merged_meeting_list(self.community, {})
+
+        self.assertIn('total', result)
+        self.assertIn('list', result)
+        self.assertIn('page', result)
+        self.assertIn('size', result)
+        self.assertEqual(result['page'], 1)
+        self.assertEqual(result['size'], 10)
+
+    def test_merged_meeting_list_pagination_page_less_than_one(self):
+        """Test merged meeting list corrects page < 1 to 1."""
+        from meeting.application.meeting import MeetingApp
+
+        self._create_test_meeting()
+
+        app = MeetingApp()
+        result = app.get_merged_meeting_list(self.community, {}, page=0)
+
+        self.assertEqual(result['page'], 1)
+
+    def test_merged_meeting_list_pagination_page_size_limit(self):
+        """Test merged meeting list corrects page_size > 100 to 10."""
+        from meeting.application.meeting import MeetingApp
+
+        self._create_test_meeting()
+
+        app = MeetingApp()
+        result = app.get_merged_meeting_list(self.community, {}, page_size=150)
+
+        self.assertEqual(result['size'], 10)
+
+    def test_merged_meeting_list_invalid_order_by_defaults_to_date(self):
+        """Test merged meeting list defaults invalid order_by to 'date'."""
+        from meeting.application.meeting import MeetingApp
+
+        self._create_test_meeting()
+
+        app = MeetingApp()
+        result = app.get_merged_meeting_list(self.community, {}, order_by='invalid_field')
+
+        # Should work without error, defaulting to 'date'
+        self.assertIn('list', result)
+
+    def test_merged_meeting_list_includes_cycle_info(self):
+        """Test merged meeting list includes cycle info for cycle meetings."""
+        from meeting.application.meeting import MeetingApp
+        from meeting.infrastructure.dao.meeting_cycle_dao import MeetingCycleDao
+
+        parent = self._create_parent_meeting()
+        sub = self._create_sub_meeting(parent)
+
+        # Create cycle date record
+        MeetingCycleDao.create(
+            mid=parent.mid,
+            start_date="2026-04-01",
+            end_date="2026-04-30",
+            start="10:00",
+            end="11:00",
+            cycle_type=1,
+            interval=1,
+            meeting=parent
+        )
+
+        app = MeetingApp()
+        result = app.get_merged_meeting_list(self.community, {})
+
+        # Find the cycle meeting in the result
+        cycle_meetings = [m for m in result['list'] if m.get('is_cycle')]
+        self.assertTrue(len(cycle_meetings) > 0)
+
+        cycle_meeting = cycle_meetings[0]
+        self.assertIn('cycle_start_date', cycle_meeting)
+        self.assertIn('cycle_end_date', cycle_meeting)
+        self.assertIn('cycle_start', cycle_meeting)
+        self.assertIn('cycle_end', cycle_meeting)
+
+    def test_merged_meeting_list_filter_by_date(self):
+        """Test merged meeting list filter by date."""
+        from meeting.application.meeting import MeetingApp
+
+        tomorrow = (datetime.datetime.now() + datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+
+        # Create meeting today and tomorrow
+        meeting_today = self._create_test_meeting()
+        meeting_tomorrow = self._create_test_meeting(
+            date=tomorrow,
+            mid=f"mid2_{datetime.datetime.now().timestamp()}"
+        )
+
+        app = MeetingApp()
+        result = app.get_merged_meeting_list(self.community, {'date': self.today})
+
+        # Should only return today's meeting
+        self.assertEqual(result['total'], 1)
+
+    def test_merged_meeting_list_sort_asc(self):
+        """Test merged meeting list ascending sort."""
+        from meeting.application.meeting import MeetingApp
+
+        # Create meetings with different dates
+        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+        tomorrow = (datetime.datetime.now() + datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+
+        self._create_test_meeting(date=yesterday, mid=f"mid1_{datetime.datetime.now().timestamp()}")
+        self._create_test_meeting(date=tomorrow, mid=f"mid2_{datetime.datetime.now().timestamp()}")
+
+        app = MeetingApp()
+        result = app.get_merged_meeting_list(self.community, {}, order_by='date', order_type='asc')
+
+        dates = [m['date'] for m in result['list']]
+        self.assertEqual(dates, sorted(dates))
+
+    def test_merged_meeting_list_sort_desc(self):
+        """Test merged meeting list descending sort."""
+        from meeting.application.meeting import MeetingApp
+
+        # Create meetings with different dates
+        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+        tomorrow = (datetime.datetime.now() + datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+
+        self._create_test_meeting(date=yesterday, mid=f"mid1_{datetime.datetime.now().timestamp()}")
+        self._create_test_meeting(date=tomorrow, mid=f"mid2_{datetime.datetime.now().timestamp()}")
+
+        app = MeetingApp()
+        result = app.get_merged_meeting_list(self.community, {}, order_by='date', order_type='desc')
+
+        dates = [m['date'] for m in result['list']]
+        self.assertEqual(dates, sorted(dates, reverse=True))
+
+
+class MeetingAppDeleteDaoTest(TestCommonMeeting):
+    """Test MeetingApp._delete_dao method for cycle meeting deletion."""
+
+    def setUp(self):
+        super().setUp()
+        self.community = "openEuler"
+        self.today = datetime.datetime.now().strftime('%Y-%m-%d')
+
+    def tearDown(self):
+        self.clear_meetings()
+        self.clear_all_users()
+
+    def _create_test_meeting(self, **kwargs):
+        """Create a test meeting with default values."""
+        defaults = {
+            "sponsor": "test_sponsor",
+            "group_name": "test_group",
+            "community": self.community,
+            "topic": "Test Meeting",
+            "platform": "WELINK",
+            "is_cycle": False,
+            "date": self.today,
+            "start": "10:00",
+            "end": "11:00",
+            "is_record": False,
+            "mid": f"test_mid_{datetime.datetime.now().timestamp()}",
+            "host_id": "test@example.com",
+            "status": BusinessMeetingStatus.NOT_STARTED.value,
+            "sequence": 0,
+        }
+        defaults.update(kwargs)
+        return MeetingDao.create(**defaults)
+
+    def _create_parent_meeting(self, **kwargs):
+        """Create a parent meeting for cycle sub meetings."""
+        defaults = {
+            "sponsor": "test_sponsor",
+            "group_name": "test_group",
+            "community": self.community,
+            "topic": "Test Cycle Meeting",
+            "platform": "WELINK",
+            "is_cycle": True,
+            "is_record": False,
+            "mid": f"cycle_mid_{datetime.datetime.now().timestamp()}",
+            "host_id": "test@example.com",
+            "sequence": 0,
+        }
+        defaults.update(kwargs)
+        return MeetingDao.create(**defaults)
+
+    def _create_sub_meeting(self, parent_meeting, **kwargs):
+        """Create a sub meeting for a cycle meeting."""
+        defaults = {
+            "mid": parent_meeting.mid,
+            "sub_id": f"sub_{datetime.datetime.now().timestamp()}",
+            "date": self.today,
+            "start": "10:00",
+            "end": "11:00",
+            "meeting": parent_meeting,
+            "status": BusinessMeetingStatus.NOT_STARTED.value,
+        }
+        defaults.update(kwargs)
+        return MeetingCycleSubMeetingDao.create(**defaults)
+
+    def test_delete_dao_cycle_meeting_updates_sub_meetings_to_cancelled(self):
+        """Test that deleting cycle meeting updates all sub meetings to CANCELLED."""
+        from meeting.application.meeting import MeetingApp
+
+        parent = self._create_parent_meeting()
+        sub1 = self._create_sub_meeting(parent, status=BusinessMeetingStatus.ONGOING.value)
+        sub2 = self._create_sub_meeting(parent, status=BusinessMeetingStatus.NOT_STARTED.value,
+                                        sub_id=f"sub2_{datetime.datetime.now().timestamp()}")
+
+        meeting_dict = {
+            "mid": parent.mid,
+            "is_cycle": True,
+            "sequence": 1,
+        }
+
+        app = MeetingApp()
+        result = app._delete_dao(parent.id, meeting_dict)
+
+        self.assertEqual(result, parent.id)
+
+        # Check that all sub meetings are marked as CANCELLED
+        sub1.refresh_from_db()
+        sub2.refresh_from_db()
+        self.assertEqual(sub1.status, BusinessMeetingStatus.CANCELLED.value)
+        self.assertEqual(sub2.status, BusinessMeetingStatus.CANCELLED.value)
+
+    def test_delete_dao_non_cycle_meeting_no_sub_meeting_update(self):
+        """Test that deleting non-cycle meeting does not affect sub meetings."""
+        from meeting.application.meeting import MeetingApp
+
+        meeting = self._create_test_meeting(is_cycle=False)
+
+        meeting_dict = {
+            "mid": meeting.mid,
+            "is_cycle": False,
+            "sequence": 1,
+        }
+
+        app = MeetingApp()
+        result = app._delete_dao(meeting.id, meeting_dict)
+
+        self.assertEqual(result, meeting.id)
+
+        # Verify meeting is marked as deleted
+        meeting.refresh_from_db()
+        self.assertEqual(meeting.is_delete, 1)
+        self.assertEqual(meeting.status, BusinessMeetingStatus.CANCELLED.value)

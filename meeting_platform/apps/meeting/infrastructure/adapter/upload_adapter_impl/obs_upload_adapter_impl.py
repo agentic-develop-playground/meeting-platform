@@ -45,7 +45,7 @@ class ObsUploadAdapterImpl(UploadAdapter):
     def _get_size_of_file(self, file_path):
         if not os.path.exists(file_path):
             logger.error('Could not get size of a non exist file: {}'.format(file_path))
-            return
+            return None
         return os.path.getsize(file_path)
 
     def _generate_obs_metadata(self, video_object, video_path):
@@ -80,20 +80,20 @@ class ObsUploadAdapterImpl(UploadAdapter):
         if upload_video_res.get('status') != 200:
             logger.error('[ObsUploadAdapterImpl/upload] {}/{}: fail to upload video to OBS, the reason is {}'.
                          format(self.meeting["community"], self.meeting["mid"], upload_video_res))
-            return
+            return None, None
         if not isinstance(upload_video_res, dict) or 'status' not in upload_video_res.keys():
             logger.error('[ObsUploadAdapterImpl/upload] {}/{} Unexpected upload video result to OBS: {}'.
                          format(self.meeting["community"], self.meeting["mid"], upload_video_res))
-            return
+            return None, None
         # 2.upload the cover png
         cover_object = self._get_obs_cover_object(video_object)
         upload_cover_res = self.obs_adapter_imp.upload_file(self.bucket, cover_object, cover_path)
         if upload_cover_res.get('status') != 200:
             logger.error('[ObsUploadAdapterImpl/upload] {}/{}: fail to upload cover to OBS, the reason is {}'.
                          format(self.meeting["community"], self.meeting["mid"], upload_cover_res))
-            return
+            return None, None
         if not isinstance(upload_cover_res, dict) or 'status' not in upload_cover_res.keys():
             logger.error('[ObsUploadAdapterImpl/upload] {}/{} Unexpected upload cover result to OBS: {}'.
                          format(self.meeting["community"], self.meeting["mid"], upload_video_res))
-            return
+            return None, None
         return video_object, cover_object

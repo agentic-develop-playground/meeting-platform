@@ -26,7 +26,7 @@ class BiliUploadAdapterImpl(UploadAdapter):
         res = self.bili_adapter_impl.upload(meeting_info, video_path, cover_path)
         if not isinstance(res, dict) or 'bvid' not in res.keys():
             logger.error('[BiliUploadAdapterImpl/upload] Unexpected upload result to bili: {}'.format(res))
-            return
+            return None
         b_vid = str(res.get('bvid'))
         logger.info('[BiliUploadAdapterImpl/upload]meeting {}: upload to bili successfully, b_vid is {}'.
                     format(self.meeting["mid"], b_vid))

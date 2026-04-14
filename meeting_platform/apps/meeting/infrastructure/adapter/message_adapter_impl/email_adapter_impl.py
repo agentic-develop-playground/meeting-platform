@@ -46,7 +46,7 @@ class EmailAdapter:
         if self.email_adapter:
             msg['From'] = '{} conference <{}>'.format(self.community, self.smtp_message_from)
             return self.email_adapter.send_message(self.smtp_message_from, receive_str, msg)
-
+        return None
 
 class EmailTemplate:
     """Email Template"""

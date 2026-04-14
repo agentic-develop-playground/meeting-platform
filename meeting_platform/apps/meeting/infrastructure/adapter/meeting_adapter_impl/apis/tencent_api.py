@@ -274,7 +274,7 @@ class TencentApi(MeetingAdapter):
         if not match_record:
             logger.error('[TencentApi/_filter_records] {}/{}: Find no recordings about Tencent meeting'.
                          format(self.community, mid))
-            return
+            return None
         return match_record
 
     def _get_video_download(self, record_file_id, user_id):
@@ -285,7 +285,7 @@ class TencentApi(MeetingAdapter):
         if r.status_code != 200:
             logger.error('[TencentApi/_filter_records] {}/{}: get video download failed:{}'.
                          format(self.community, record_file_id, r.content.decode("utf-8")))
-            return
+            return None
         return r.json().get("download_address")
 
     def _download_video(self, action, available_record):
@@ -294,7 +294,7 @@ class TencentApi(MeetingAdapter):
         download_url = self._get_video_download(available_record.get('record_file_id'), available_record.get('userid'))
         if not download_url:
             logger.error("[TencentApi/_download_video] {}/{}: get empty download url".format(self.community, mid))
-            return
+            return None
         target_filename = get_video_path(mid, self.community)
         download_big_file(download_url, target_filename)
         return target_filename
@@ -306,11 +306,11 @@ class TencentApi(MeetingAdapter):
         recordings = self._get_records()
         if not recordings:
             logger.error("[TencentApi/get_video] {}/{}:find no recordings".format(self.community, action.mid))
-            return
+            return None
         available_record = self._filter_records(action, recordings)
         if not available_record:
             logger.info('[TencentApi/get_video] {}/{}:filter no available recording'.format(self.community, action.mid))
-            return
+            return None
         return self._download_video(action, available_record)
 
     def force_end_meeting(self, action):

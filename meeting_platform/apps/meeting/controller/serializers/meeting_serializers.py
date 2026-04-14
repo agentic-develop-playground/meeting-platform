@@ -250,6 +250,7 @@ class MeetingSerializer(ModelSerializer):
         if value:
             value = check_date(value)
             return value.strftime('%Y-%m-%d')
+        return value
 
     @staticmethod
     def check_date(value):
@@ -273,12 +274,14 @@ class MeetingSerializer(ModelSerializer):
         if value:
             check_time(value)
             return value
+        return value
 
     def validate_end(self, value):
         """check end"""
         if value:
             check_time(value)
             return value
+        return value
 
     def validate_is_record(self, value):
         """check record"""
@@ -299,6 +302,7 @@ class MeetingSerializer(ModelSerializer):
         if value:
             check_link(value)
             return value
+        return value
 
     def validate_agenda(self, value):
         """check agenda"""
@@ -307,12 +311,14 @@ class MeetingSerializer(ModelSerializer):
             check_invalid_content(value, check_crlf=False)
             self._check_content_by_audit(value)
             return value
+        return value
 
     def validate_email_list(self, value):
         """check email_list"""
         if value:
             check_email_list(value)
             return value
+        return value
 
     def validate_is_cycle(self, value):
         """check is_cycle"""
@@ -326,34 +332,40 @@ class MeetingSerializer(ModelSerializer):
         if value:
             check_date(value)
             return value
+        return value
 
     def validate_cycle_end_date(self, value):
         """check the cycle_end_date"""
         if value:
             check_date(value)
             return value
+        return value
 
     def validate_cycle_start(self, value):
         """check the cycle start"""
         if value:
             check_time(value)
             return value
+        return value
 
     def validate_cycle_end(self, value):
         """check the cycle end"""
         if value:
             check_time(value)
             return value
+        return value
 
     def validate_cycle_type(self, value):
         """check the cycle type"""
         if value is not None:
             return CycleType.check_value(value)
+        return value
 
     def validate_cycle_interval(self, value):
         """check the cycle interval"""
         if value is not None:
             return int(value)
+        return value
 
     def validate_cycle_point(self, value):
         """check the cycle point"""
@@ -367,6 +379,7 @@ class MeetingSerializer(ModelSerializer):
             except Exception as e:
                 logger.info("invalid cycle_point:{}, e:{}".format(value, e))
                 raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
+        return None
 
     def validate(self, attrs):
         if "is_private" not in attrs:
@@ -406,11 +419,14 @@ class MeetingSerializer(ModelSerializer):
         """get duration"""
         if obj.start and obj.end:
             return math.ceil(float(obj.end.replace(':', '.'))) - math.floor(float(obj.start.replace(':', '.')))
+        return None
 
     def get_duration_time(self, obj):
         """get duration time"""
         if obj.start and obj.end:
             return obj.start.split(':')[0] + ':00' + '-' + str(math.ceil(float(obj.end.replace(':', '.')))) + ':00'
+        return None
+
 
     def get_status(self, obj):
         """获取业务状态
@@ -524,24 +540,28 @@ class SingleMeetingSerializer(ModelSerializer):
         if value:
             check_email_list(value)
             return value
+        return value
 
     def validate_date(self, value):
         """check date"""
         if value is not None:
             value = check_date(value)
             return value.strftime('%Y-%m-%d')
+        return value
 
     def validate_start(self, value):
         """check start"""
         if value is not None:
             check_time(value)
             return value
+        return value
 
     def validate_end(self, value):
         """check end"""
         if value is not None:
             check_time(value)
             return value
+        return value
 
     def validate_agenda(self, value):
         """check agenda"""
@@ -550,12 +570,14 @@ class SingleMeetingSerializer(ModelSerializer):
             check_invalid_content(value, check_crlf=False)
             self._check_content_by_audit(value)
             return value
+        return value
 
     def validate_etherpad(self, value):
         """check etherpad"""
         if value:
             check_link(value)
             return value
+        return value
 
     def validate_is_record(self, value):
         """check record"""
@@ -583,34 +605,40 @@ class SingleMeetingSerializer(ModelSerializer):
         if value:
             check_date(value)
             return value
+        return value
 
     def validate_cycle_end_date(self, value):
         """check the cycle_end_date"""
         if value:
             check_date(value)
             return value
+        return value
 
     def validate_cycle_start(self, value):
         """check the cycle start"""
         if value:
             check_time(value)
             return value
+        return value
 
     def validate_cycle_end(self, value):
         """check the cycle end"""
         if value:
             check_time(value)
             return value
+        return value
 
     def validate_cycle_type(self, value):
         """check the cycle type"""
         if value is not None:
             return CycleType.check_value(value)
+        return value
 
     def validate_cycle_interval(self, value):
         """check the cycle interval"""
         if value is not None:
             return int(value)
+        return value
 
     def validate_cycle_point(self, value):
         """check the cycle point"""
@@ -624,6 +652,7 @@ class SingleMeetingSerializer(ModelSerializer):
             except Exception as e:
                 logger.info("invalid cycle_point:{}, e:{}".format(value, e))
                 raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
+        return None
 
     def validate(self, attrs):
         """all validate data"""
@@ -657,11 +686,13 @@ class SingleMeetingSerializer(ModelSerializer):
         """get duration"""
         if obj.start and obj.end:
             return math.ceil(float(obj.end.replace(':', '.'))) - math.floor(float(obj.start.replace(':', '.')))
+        return None
 
     def get_duration_time(self, obj):
         """get duration time"""
         if obj.start and obj.end:
             return obj.start.split(':')[0] + ':00' + '-' + str(math.ceil(float(obj.end.replace(':', '.')))) + ':00'
+        return None
 
     def get_status(self, obj):
         """获取业务状态
@@ -731,6 +762,7 @@ class CycleSubMeetingSerializer(ModelSerializer):
         meeting_info = self.__meeting_dao.get_by_mid(obj.mid)
         if meeting_info:
             return meeting_info.is_record
+        return None
 
     def get_cycle_sub(self, obj):
         """get cycle point"""
@@ -740,6 +772,7 @@ class CycleSubMeetingSerializer(ModelSerializer):
         meeting_info = self.__meeting_dao.get_by_mid(obj.mid)
         if meeting_info:
             return meeting_info.sponsor
+        return None
 
 
 class MeetingGroupNameSerializer(ModelSerializer):

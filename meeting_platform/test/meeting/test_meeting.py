@@ -804,12 +804,13 @@ class DeleteMeetingViewTest(TestCommonMeeting):
         return self.create_meeting(**data)
 
     @mock.patch("meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.delete")
-    def test_cant_delete_in_before_one_hours(self, mock_delete):
+    def test_delete_meeting_within_30_minutes_allowed(self, mock_delete):
+        """Test that deleting a meeting within 30 minutes of start is now allowed (rule changed)."""
         user = self._setup()
         mock_delete.return_value = 200
         data = copy.deepcopy(CreateMeetingViewTest.data)
         cur_date = datetime.datetime.now()
-        # Set meeting to start 25 minutes from now (within the 30-minute restriction)
+        # Set meeting to start 25 minutes from now (within the 30-minute window)
         data["sponsor"] = user.username
         data["date"] = cur_date.date()
         # Calculate a time that's within 30 minutes from now
@@ -823,7 +824,8 @@ class DeleteMeetingViewTest(TestCommonMeeting):
         meeting = self.create_meeting(**data)
         time.sleep(10)
         ret = self.client.delete(self.url.format(meeting.id))
-        self.assertEqual(ret.status_code, status.HTTP_400_BAD_REQUEST)
+        # Rule changed: deletion within 30 minutes is now allowed
+        self.assertEqual(ret.status_code, status.HTTP_200_OK)
         self._teardown()
 
     @mock.patch("meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create")

@@ -2,7 +2,7 @@ import datetime
 import os
 import shutil
 import logging
-import subprocess
+import subprocess  # nosec B404
 import re
 import json
 import tempfile
@@ -78,7 +78,7 @@ class AudioTrimmer:
             "-f", "null", "-",
         ]
 
-        process = subprocess.Popen(
+        process = subprocess.Popen(  # nosec B603
             cmd, stderr=subprocess.PIPE,
             universal_newlines=True, shell=False
         )

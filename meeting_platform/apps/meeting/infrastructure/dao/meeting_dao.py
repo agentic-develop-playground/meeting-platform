@@ -2,10 +2,9 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2026 Huawei Technologies Co., Ltd.
 from meeting.models import Meeting
-from django.db.models import Q
+from django.db.models import Q, Value, CharField
 from datetime import datetime, timedelta
 from meeting.domain.primitive.meeting_status import BusinessMeetingStatus
-
 
 class MeetingDao:
     dao = Meeting
@@ -167,7 +166,6 @@ class MeetingDao:
     @classmethod
     def update_status(cls, meeting_id, status):
         """更新会议状态"""
-        from datetime import datetime
         return cls.dao.objects.filter(id=meeting_id).update(
             status=status,
             status_updated_at=datetime.now()
@@ -176,7 +174,6 @@ class MeetingDao:
     @classmethod
     def clear_status(cls, meeting_id):
         """清除会议状态（会议结束时调用）"""
-        from datetime import datetime
         return cls.dao.objects.filter(id=meeting_id).update(
             status=BusinessMeetingStatus.ENDED.value,
             status_updated_at=datetime.now(),
@@ -232,7 +229,6 @@ class MeetingDao:
 
         注意：不再限制结束时间窗口，由业务逻辑动态判断预警时机
         """
-        from datetime import datetime
 
         now = datetime.now()
         current_time = now.strftime('%H:%M')
@@ -289,8 +285,6 @@ class MeetingDao:
 
         返回ValuesQuerySet，字段与周期子会议一致，便于UNION合并
         """
-        from django.db.models import Value, CharField
-
         query_set = cls.dao.objects.filter(
             community=community,
             is_cycle=False

@@ -4,7 +4,7 @@
 import logging
 import uuid
 import base64
-import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 
 from rest_framework.test import APITestCase
@@ -12,7 +12,7 @@ from rest_framework import status
 
 from meeting.models import (
     Meeting, User, MeetingCycleDate, MeetingCycleSubMeeting,
-    MeetingBiliRecords, MeetingObsRecords, MeetingParticipants
+    MeetingBiliRecords, MeetingObsRecords
 )
 
 logger = logging.getLogger("log")
@@ -320,8 +320,6 @@ class BaseCyclicMeetingTest(BaseMeetingTest):
         Returns:
             List of date strings
         """
-        from datetime import datetime, timedelta
-
         start = datetime.strptime(start_date, "%Y-%m-%d").date()
         end = datetime.strptime(end_date, "%Y-%m-%d").date()
 
@@ -352,7 +350,6 @@ class BaseCyclicMeetingTest(BaseMeetingTest):
         Returns:
             List of date strings
         """
-        from datetime import datetime, timedelta
 
         start = datetime.strptime(start_date, "%Y-%m-%d").date()
         end = datetime.strptime(end_date, "%Y-%m-%d").date()

@@ -1,9 +1,11 @@
+# Test settings file - contains mock/test credentials only, not real secrets
+# bandit: disable=B105
 import os
 import sys
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Ensure apps/ directory is on PYTHONPATH like prod settings
 sys.path.insert(0, os.path.join(BASE_DIR, "apps"))
-SECRET_KEY = 'test-secret-key'
+SECRET_KEY = 'test-secret-key'  # nosec B105
 DEBUG = True
 ALLOWED_HOSTS = []
 INSTALLED_APPS = [
@@ -81,34 +83,34 @@ EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
 COMMUNITY_HOST = {
     'openEuler': {
         'zoom': [
-            {'HOST': 'host1@test.com', 'ACCOUNT': 'account1', 'TOKEN': 'token1'},
-            {'HOST': 'host2@test.com', 'ACCOUNT': 'account2', 'TOKEN': 'token2'},
-            {'HOST': 'host3@test.com', 'ACCOUNT': 'account3', 'TOKEN': 'token3'}
+            {'HOST': 'host1@test.com', 'ACCOUNT': 'account1', 'TOKEN': 'token1'},  # nosec
+            {'HOST': 'host2@test.com', 'ACCOUNT': 'account2', 'TOKEN': 'token2'},  # nosec
+            {'HOST': 'host3@test.com', 'ACCOUNT': 'account3', 'TOKEN': 'token3'}  # nosec
         ],
         'ZOOM': [
-            {'HOST': 'host1@test.com', 'ACCOUNT': 'account1', 'TOKEN': 'token1'},
-            {'HOST': 'host2@test.com', 'ACCOUNT': 'account2', 'TOKEN': 'token2'},
-            {'HOST': 'host3@test.com', 'ACCOUNT': 'account3', 'TOKEN': 'token3'}
+            {'HOST': 'host1@test.com', 'ACCOUNT': 'account1', 'TOKEN': 'token1'},  # nosec
+            {'HOST': 'host2@test.com', 'ACCOUNT': 'account2', 'TOKEN': 'token2'},  # nosec
+            {'HOST': 'host3@test.com', 'ACCOUNT': 'account3', 'TOKEN': 'token3'}  # nosec
         ],
         'welink': [
-            {'HOST': 'host4@test.com', 'ACCOUNT': 'account4', 'PWD': 'pwd4'},
-            {'HOST': 'host5@test.com', 'ACCOUNT': 'account5', 'PWD': 'pwd5'},
-            {'HOST': 'host6@test.com', 'ACCOUNT': 'account6', 'PWD': 'pwd6'}
+            {'HOST': 'host4@test.com', 'ACCOUNT': 'account4', 'PWD': 'pwd4'},  # nosec
+            {'HOST': 'host5@test.com', 'ACCOUNT': 'account5', 'PWD': 'pwd5'},  # nosec
+            {'HOST': 'host6@test.com', 'ACCOUNT': 'account6', 'PWD': 'pwd6'}  # nosec
         ],
         'WELINK': [
-            {'HOST': 'host4@test.com', 'ACCOUNT': 'account4', 'PWD': 'pwd4'},
-            {'HOST': 'host5@test.com', 'ACCOUNT': 'account5', 'PWD': 'pwd5'},
-            {'HOST': 'host6@test.com', 'ACCOUNT': 'account6', 'PWD': 'pwd6'}
+            {'HOST': 'host4@test.com', 'ACCOUNT': 'account4', 'PWD': 'pwd4'},  # nosec
+            {'HOST': 'host5@test.com', 'ACCOUNT': 'account5', 'PWD': 'pwd5'},  # nosec
+            {'HOST': 'host6@test.com', 'ACCOUNT': 'account6', 'PWD': 'pwd6'}  # nosec
         ],
         'tencent': [
-            {'HOST': 'host7@test.com', 'SECRET_ID': 'id7', 'SECRET_KEY': 'key7'},
-            {'HOST': 'host8@test.com', 'SECRET_ID': 'id8', 'SECRET_KEY': 'key8'},
-            {'HOST': 'host9@test.com', 'SECRET_ID': 'id9', 'SECRET_KEY': 'key9'}
+            {'HOST': 'host7@test.com', 'SECRET_ID': 'id7', 'SECRET_KEY': 'key7'},  # nosec
+            {'HOST': 'host8@test.com', 'SECRET_ID': 'id8', 'SECRET_KEY': 'key8'},  # nosec
+            {'HOST': 'host9@test.com', 'SECRET_ID': 'id9', 'SECRET_KEY': 'key9'}  # nosec
         ],
         'TENCENT': [
-            {'HOST': 'host7@test.com', 'SECRET_ID': 'id7', 'SECRET_KEY': 'key7'},
-            {'HOST': 'host8@test.com', 'SECRET_ID': 'id8', 'SECRET_KEY': 'key8'},
-            {'HOST': 'host9@test.com', 'SECRET_ID': 'id9', 'SECRET_KEY': 'key9'}
+            {'HOST': 'host7@test.com', 'SECRET_ID': 'id7', 'SECRET_KEY': 'key7'},  # nosec
+            {'HOST': 'host8@test.com', 'SECRET_ID': 'id8', 'SECRET_KEY': 'key8'},  # nosec
+            {'HOST': 'host9@test.com', 'SECRET_ID': 'id9', 'SECRET_KEY': 'key9'}  # nosec
         ]
     }
 }
@@ -119,7 +121,7 @@ COMMUNITY_SMTP = {
         'SMTP_SERVER_HOST': 'smtp.test.com',
         'SMTP_SERVER_PORT': 587,
         'SMTP_SERVER_USER': 'test@test.com',
-        'SMTP_SERVER_PASS': 'test_password',
+        'SMTP_SERVER_PASS': 'test_password',  # nosec
         'SMTP_MESSAGE_FROM': 'noreply@test.com'
     }
 }
@@ -179,11 +181,11 @@ COMMUNITY_BILI = {}
 # Audit client disabled for tests (URL/TOKEN = None will bypass audit checks)
 COMMUNITY_AUDIT = {
     'URL': None,
-    'TOKEN': None
+    'TOKEN': None  # nosec
 }
 COMMUNITY_TRANSLATE = {
     'URL': 'http://test-translate.com',
-    'TOKEN': 'test-token'
+    'TOKEN': 'test-token'  # nosec
 }
 COMMUNITY_ZOOM_OBS = {}
 

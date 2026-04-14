@@ -84,7 +84,7 @@ class ScanUploadRecording:
         if not os.path.exists(image_path):
             logger.error('[ScanUploadRecording/_get_video_cover_path] {}/{}: fail to generate cover for meeting video'
                          .format(self.community, meeting["mid"]))
-            return
+            return None
         return image_path
 
     def scan_video(self):
