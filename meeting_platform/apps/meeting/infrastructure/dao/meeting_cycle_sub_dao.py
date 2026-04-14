@@ -66,6 +66,10 @@ class MeetingCycleSubMeetingDao:
         return cls._dao.objects.filter(mid=mid, sub_id=sub_id).update(**kwargs)
 
     @classmethod
+    def update_status_by_mid(cls, mid, status):
+        return cls._dao.objects.filter(mid=mid).update(status=status)
+
+    @classmethod
     def get_status_sync_candidates(cls, community, today):
         """获取今天所有周期子会议
 

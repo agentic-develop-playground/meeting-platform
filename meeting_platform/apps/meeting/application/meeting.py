@@ -311,6 +311,8 @@ class MeetingApp:
             self.meeting_dao.delete_by_id(meeting_id, meeting["sequence"])
             self.meeting_bili_records_dao.delete_by_mid(meeting["mid"])
             self.meeting_obs_records_dao.delete_by_mid(meeting["mid"])
+            if meeting["is_cycle"]:
+                self.meeting_cycle_sub_dao.update_status_by_mid(meeting["mid"], BusinessMeetingStatus.CANCELLED.value)
         return meeting_id
 
     def _update_sub_dao(self, meeting):
