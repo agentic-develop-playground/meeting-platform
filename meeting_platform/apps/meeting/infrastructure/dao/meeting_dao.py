@@ -94,6 +94,7 @@ class MeetingDao:
     @classmethod
     def delete_by_id(cls, meeting_id, sequence):
         return cls.dao.objects.filter(id=meeting_id, is_delete=0).update(is_delete=1,
+                                                                         status=BusinessMeetingStatus.CANCELLED.value,
                                                                          sequence=sequence)
 
     @classmethod
