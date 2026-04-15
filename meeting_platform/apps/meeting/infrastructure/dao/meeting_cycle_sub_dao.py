@@ -283,7 +283,7 @@ class MeetingCycleSubMeetingDao:
         status_filter = filters.get('status')
         if status_filter is not None and status_filter != BusinessMeetingStatus.CANCELLED.value:
             # 用数据库 status 字段筛选
-            query_set = query_set.filter(meeting__status=status_filter).filter(meeting__is_delete=0)
+            query_set = query_set.filter(status=status_filter).filter(meeting__is_delete=0)
         elif status_filter == BusinessMeetingStatus.CANCELLED.value:
             # 已取消状态用 is_delete 筛选
             query_set = query_set.filter(meeting__is_delete=1)
