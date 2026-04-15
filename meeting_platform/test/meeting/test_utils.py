@@ -495,10 +495,14 @@ class EmailClientUnitTest(BaseTestCommonMeeting):
     def setUp(self):
         super().setUp()
         self.temp_dir = tempfile.mkdtemp()
+        self.addCleanup(self._cleanup_temp_dir)
 
-    def tearDown(self):
+    def _cleanup_temp_dir(self):
+        """Clean up temporary directory."""
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
+
+    def tearDown(self):
         self.clear_meetings()
         self.clear_all_users()
 
@@ -595,10 +599,14 @@ class RmDirUnitTest(BaseTestCommonMeeting):
     def setUp(self):
         super().setUp()
         self.temp_base = tempfile.mkdtemp()
+        self.addCleanup(self._cleanup_temp_base)
 
-    def tearDown(self):
+    def _cleanup_temp_base(self):
+        """Clean up temporary directory."""
         if os.path.exists(self.temp_base):
             shutil.rmtree(self.temp_base)
+
+    def tearDown(self):
         self.clear_meetings()
         self.clear_all_users()
 

@@ -515,7 +515,7 @@ class MeetingListViewTest(TestCommonMeeting):
 
     def test_list_meetings_returns_non_cycle_meetings(self):
         """Test that list returns non-cycle meetings."""
-        meeting = self._create_test_meeting()
+        self._create_test_meeting()
 
         response = self.client.get(f"{self.url}?community={self.community}")
 
@@ -527,7 +527,7 @@ class MeetingListViewTest(TestCommonMeeting):
 
     def test_list_meetings_includes_status(self):
         """Test that meeting list includes business status."""
-        meeting = self._create_test_meeting()
+        self._create_test_meeting()
 
         response = self.client.get(f"{self.url}?community={self.community}")
 
@@ -539,7 +539,7 @@ class MeetingListViewTest(TestCommonMeeting):
 
     def test_list_meetings_filter_by_date(self):
         """Test filtering meetings by date."""
-        meeting = self._create_test_meeting()
+        self._create_test_meeting()
 
         response = self.client.get(f"{self.url}?community={self.community}&date={self.today}")
 
@@ -692,8 +692,6 @@ class SmartWarningEmailTest(TestCommonMeeting):
 
         简化逻辑：无论间隔长短，都在下一场会议开始前30分钟发送预警
         """
-        from meeting.management.commands.handle_meeting_status import HandleMeetingStatus
-
         handler = HandleMeetingStatus(self.community)
 
         # 场景：会议A 09:00-10:00，会议B 14:00-15:00
@@ -745,8 +743,6 @@ class SmartWarningEmailTest(TestCommonMeeting):
         场景：会议A 09:00-10:00，会议B 16:00-17:00（间隔6小时）
         预警时间：16:00 - 30分钟 = 15:30 发送预警
         """
-        from meeting.management.commands.handle_meeting_status import HandleMeetingStatus
-
         handler = HandleMeetingStatus(self.community)
 
         # At 15:30, should send warning

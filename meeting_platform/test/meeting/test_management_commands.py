@@ -750,19 +750,19 @@ class HandleMeetingStatusWarningEmailTest(TestCommonMeeting):
 
         # Should complete without errors when no emails configured
 
+    @mock.patch('meeting.infrastructure.dao.meeting_dao.MeetingDao.get_ongoing_meetings_for_warning')
+    @mock.patch('meeting.infrastructure.dao.meeting_cycle_sub_dao.MeetingCycleSubMeetingDao.get_ongoing_sub_meetings_for_warning')
     @mock.patch('meeting.infrastructure.adapter.message_adapter_impl.email_adapter_impl.EmailAdapter')
     @override_settings(OPERATOR_EMAILS={'openEuler': ['operator@test.com']})
-    def test_send_warning_emails_empty_ongoing_meetings(self, mock_email_adapter):
+    def test_send_warning_emails_empty_ongoing_meetings(self, mock_email_adapter, mock_sub_dao, mock_meeting_dao):
         """Test send_warning_emails handles empty ongoing meetings list."""
         from meeting.management.commands.handle_meeting_status import HandleMeetingStatus
 
         mock_email_adapter.return_value = mock.MagicMock()
+        mock_meeting_dao.return_value = []
+        mock_sub_dao.return_value = []
 
         handler = HandleMeetingStatus(self.community)
-        # Mock DAO to return empty list
-        handler.meeting_dao.get_ongoing_meetings_for_warning = mock.MagicMock(return_value=[])
-        handler._meeting_cycle_sub_dao.get_ongoing_sub_meetings_for_warning = mock.MagicMock(return_value=[])
-
         handler.send_warning_emails()
 
         # Should complete without errors
@@ -780,39 +780,45 @@ class HandleMeetingStatusGetNextMeetingTest(TestCommonMeeting):
         self.clear_meetings()
         self.clear_all_users()
 
-    def test_get_next_meeting_start_time_no_meetings(self):
+    @mock.patch('meeting.infrastructure.dao.meeting_dao.MeetingDao.get_next_meeting_start_time')
+    @mock.patch('meeting.infrastructure.dao.meeting_cycle_sub_dao.MeetingCycleSubMeetingDao.get_next_sub_meeting_start_time')
+    def test_get_next_meeting_start_time_no_meetings(self, mock_sub_dao, mock_meeting_dao):
         """Test _get_next_meeting_start_time returns None when no meetings."""
         from meeting.management.commands.handle_meeting_status import HandleMeetingStatus
 
-        handler = HandleMeetingStatus(self.community)
-        handler.meeting_dao.get_next_meeting_start_time = mock.MagicMock(return_value=None)
-        handler._meeting_cycle_sub_dao.get_next_sub_meeting_start_time = mock.MagicMock(return_value=None)
+        mock_meeting_dao.return_value = None
+        mock_sub_dao.return_value = None
 
+        handler = HandleMeetingStatus(self.community)
         result = handler._get_next_meeting_start_time("host@test.com", self.today, "11:00")
 
         self.assertIsNone(result)
 
-    def test_get_next_meeting_start_time_returns_earliest(self):
+    @mock.patch('meeting.infrastructure.dao.meeting_dao.MeetingDao.get_next_meeting_start_time')
+    @mock.patch('meeting.infrastructure.dao.meeting_cycle_sub_dao.MeetingCycleSubMeetingDao.get_next_sub_meeting_start_time')
+    def test_get_next_meeting_start_time_returns_earliest(self, mock_sub_dao, mock_meeting_dao):
         """Test _get_next_meeting_start_time returns earliest meeting."""
         from meeting.management.commands.handle_meeting_status import HandleMeetingStatus
 
-        handler = HandleMeetingStatus(self.community)
-        handler.meeting_dao.get_next_meeting_start_time = mock.MagicMock(return_value="12:00")
-        handler._meeting_cycle_sub_dao.get_next_sub_meeting_start_time = mock.MagicMock(return_value="11:30")
+        mock_meeting_dao.return_value = "12:00"
+        mock_sub_dao.return_value = "11:30"
 
+        handler = HandleMeetingStatus(self.community)
         result = handler._get_next_meeting_start_time("host@test.com", self.today, "11:00")
 
         # Should return earliest time
         self.assertEqual(result, "11:30")
 
-    def test_get_next_meeting_start_time_only_non_cycle(self):
+    @mock.patch('meeting.infrastructure.dao.meeting_dao.MeetingDao.get_next_meeting_start_time')
+    @mock.patch('meeting.infrastructure.dao.meeting_cycle_sub_dao.MeetingCycleSubMeetingDao.get_next_sub_meeting_start_time')
+    def test_get_next_meeting_start_time_only_non_cycle(self, mock_sub_dao, mock_meeting_dao):
         """Test _get_next_meeting_start_time with only non-cycle meeting."""
         from meeting.management.commands.handle_meeting_status import HandleMeetingStatus
 
-        handler = HandleMeetingStatus(self.community)
-        handler.meeting_dao.get_next_meeting_start_time = mock.MagicMock(return_value="14:00")
-        handler._meeting_cycle_sub_dao.get_next_sub_meeting_start_time = mock.MagicMock(return_value=None)
+        mock_meeting_dao.return_value = "14:00"
+        mock_sub_dao.return_value = None
 
+        handler = HandleMeetingStatus(self.community)
         result = handler._get_next_meeting_start_time("host@test.com", self.today, "11:00")
 
         self.assertEqual(result, "14:00")
@@ -1271,7 +1277,7 @@ class MeetingCacheDaoTest(TestCommonMeeting):
         self.assertEqual(result.meeting_id, "test_uuid_2")
 
 
-class HandleRecordingUploadBiliTest(TestCommonMeeting):
+class HandleRecordingUploadBiliAllTest(TestCommonMeeting):
     """Test HandleRecording.upload_bili method."""
 
     def setUp(self):

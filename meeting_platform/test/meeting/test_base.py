@@ -75,7 +75,13 @@ class CommonClass:
         return self.meeting_dao.objects.filter(sponsor=username).all()
 
     def clear_meetings(self):
-        """Delete all meetings from database."""
+        """Delete all meetings and related records from database."""
+        # Delete related records first (to avoid foreign key constraints)
+        MeetingCycleSubMeeting.objects.all().delete()
+        MeetingCycleDate.objects.all().delete()
+        MeetingBiliRecords.objects.all().delete()
+        MeetingObsRecords.objects.all().delete()
+        # Then delete all meetings
         ret = self.meeting_dao.objects.all().delete()
         logger.info("delete meeting and result is:{}".format(str(ret)))
 

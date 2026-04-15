@@ -8,8 +8,8 @@ Tests include:
 - BiliUploadAdapterImpl: upload returns replay URL/bvid, add_video
 - ObsUploadAdapterImpl: path generation, metadata generation, upload
 """
-import datetime
 import os
+import shutil
 import tempfile
 from unittest import mock
 
@@ -110,6 +110,7 @@ class ObsUploadAdapterImplTest(TestCommonMeeting):
     def setUp(self):
         super().setUp()
         self.temp_dir = tempfile.mkdtemp()
+        self.addCleanup(self._cleanup_temp_dir)
         self.meeting = {
             "community": "openEuler",
             "mid": "test_mid_123",
@@ -126,10 +127,12 @@ class ObsUploadAdapterImplTest(TestCommonMeeting):
         with open(self.video_path, 'wb') as f:
             f.write(b'test video content')
 
-    def tearDown(self):
+    def _cleanup_temp_dir(self):
+        """Clean up temporary directory."""
         if os.path.exists(self.temp_dir):
-            import shutil
             shutil.rmtree(self.temp_dir)
+
+    def tearDown(self):
         self.clear_meetings()
         self.clear_all_users()
 
@@ -400,3 +403,145 @@ class UploadAdapterInitTest(TestCommonMeeting):
         self.assertIsNotNone(adapter.obs_adapter_imp)
         self.assertEqual(adapter.endpoint, 'obs.test.com')
         self.assertEqual(adapter.bucket, 'test_bucket')
+
+
+class ObsUploadAdapterImplErrorTest(TestCommonMeeting):
+    """Test ObsUploadAdapterImpl error handling scenarios."""
+
+    def setUp(self):
+        super().setUp()
+        self.temp_dir = tempfile.mkdtemp()
+        self.addCleanup(self._cleanup_temp_dir)
+        self.meeting = {
+            "community": "openEuler",
+            "mid": "test_mid_123",
+            "date": "2026-04-15",
+            "group_name": "test_group",
+            "topic": "Test Meeting",
+            "sponsor": "test_sponsor",
+            "agenda": "Test Agenda",
+            "start": "10:00",
+            "end": "11:00",
+        }
+        # Create a temporary video file
+        self.video_path = os.path.join(self.temp_dir, 'test_video.mp4')
+        with open(self.video_path, 'wb') as f:
+            f.write(b'test video content')
+        self.cover_path = os.path.join(self.temp_dir, 'test_cover.png')
+        with open(self.cover_path, 'wb') as f:
+            f.write(b'test cover content')
+
+    def _cleanup_temp_dir(self):
+        """Clean up temporary directory."""
+        if os.path.exists(self.temp_dir):
+            shutil.rmtree(self.temp_dir)
+
+    def tearDown(self):
+        self.clear_meetings()
+        self.clear_all_users()
+
+    @mock.patch('meeting.infrastructure.adapter.upload_adapter_impl.obs_upload_adapter_impl.ObsAdapterImp')
+    @mock.patch('django.conf.settings.COMMUNITY_OBS')
+    def test_upload_video_fail_status_not_200(self, mock_obs_settings, mock_obs_adapter):
+        """Test upload returns None when video upload fails with non-200 status (covers line 80-83)."""
+        mock_obs_settings.__getitem__ = mock.MagicMock(return_value={
+            'AK': 'test_ak',
+            'SK': 'test_sk',
+            'ENDPOINT': 'obs.test.com',
+            'BUCKET': 'test_bucket'
+        })
+
+        mock_obs_adapter_instance = mock.MagicMock()
+        # Video upload returns non-200 status
+        mock_obs_adapter_instance.upload_file.return_value = {'status': 500, 'message': 'Internal Server Error'}
+        mock_obs_adapter.return_value = mock_obs_adapter_instance
+
+        adapter = ObsUploadAdapterImpl(self.meeting)
+        video_object, cover_object = adapter.upload(self.video_path, self.cover_path)
+
+        # Should return None, None when video upload fails
+        self.assertIsNone(video_object)
+        self.assertIsNone(cover_object)
+        # Verify upload_file was called once for video
+        mock_obs_adapter_instance.upload_file.assert_called_once()
+
+    @mock.patch('meeting.infrastructure.adapter.upload_adapter_impl.obs_upload_adapter_impl.ObsAdapterImp')
+    @mock.patch('django.conf.settings.COMMUNITY_OBS')
+    def test_upload_video_unexpected_result(self, mock_obs_settings, mock_obs_adapter):
+        """Test upload returns None when video upload returns unexpected result format (covers line 84-87)."""
+        mock_obs_settings.__getitem__ = mock.MagicMock(return_value={
+            'AK': 'test_ak',
+            'SK': 'test_sk',
+            'ENDPOINT': 'obs.test.com',
+            'BUCKET': 'test_bucket'
+        })
+
+        mock_obs_adapter_instance = mock.MagicMock()
+        # Video upload returns result without 'status' key
+        mock_obs_adapter_instance.upload_file.return_value = {'message': 'uploaded', 'code': 'OK'}
+        mock_obs_adapter.return_value = mock_obs_adapter_instance
+
+        adapter = ObsUploadAdapterImpl(self.meeting)
+        video_object, cover_object = adapter.upload(self.video_path, self.cover_path)
+
+        # Should return None, None when video result format is unexpected
+        self.assertIsNone(video_object)
+        self.assertIsNone(cover_object)
+        # Verify upload_file was called once for video
+        mock_obs_adapter_instance.upload_file.assert_called_once()
+
+    @mock.patch('meeting.infrastructure.adapter.upload_adapter_impl.obs_upload_adapter_impl.ObsAdapterImp')
+    @mock.patch('django.conf.settings.COMMUNITY_OBS')
+    def test_upload_cover_fail_status_not_200(self, mock_obs_settings, mock_obs_adapter):
+        """Test upload returns None when cover upload fails with non-200 status (covers line 91-94)."""
+        mock_obs_settings.__getitem__ = mock.MagicMock(return_value={
+            'AK': 'test_ak',
+            'SK': 'test_sk',
+            'ENDPOINT': 'obs.test.com',
+            'BUCKET': 'test_bucket'
+        })
+
+        mock_obs_adapter_instance = mock.MagicMock()
+        # First call (video upload) succeeds, second call (cover upload) fails
+        mock_obs_adapter_instance.upload_file.side_effect = [
+            {'status': 200},  # Video upload succeeds
+            {'status': 403, 'message': 'Forbidden'}  # Cover upload fails with 403
+        ]
+        mock_obs_adapter.return_value = mock_obs_adapter_instance
+
+        adapter = ObsUploadAdapterImpl(self.meeting)
+        video_object, cover_object = adapter.upload(self.video_path, self.cover_path)
+
+        # Should return None, None when cover upload fails
+        self.assertIsNone(video_object)
+        self.assertIsNone(cover_object)
+        # Verify upload_file was called twice (video then cover)
+        self.assertEqual(mock_obs_adapter_instance.upload_file.call_count, 2)
+
+    @mock.patch('meeting.infrastructure.adapter.upload_adapter_impl.obs_upload_adapter_impl.ObsAdapterImp')
+    @mock.patch('django.conf.settings.COMMUNITY_OBS')
+    def test_upload_cover_unexpected_result(self, mock_obs_settings, mock_obs_adapter):
+        """Test upload returns None when cover upload returns unexpected result format (covers line 95-98)."""
+        mock_obs_settings.__getitem__ = mock.MagicMock(return_value={
+            'AK': 'test_ak',
+            'SK': 'test_sk',
+            'ENDPOINT': 'obs.test.com',
+            'BUCKET': 'test_bucket'
+        })
+
+        mock_obs_adapter_instance = mock.MagicMock()
+        # First call (video upload) succeeds, second call (cover upload) returns unexpected format
+        mock_obs_adapter_instance.upload_file.side_effect = [
+            {'status': 200},  # Video upload succeeds
+            {'message': 'uploaded', 'code': 'OK'}  # Cover upload returns unexpected format (no status)
+        ]
+        mock_obs_adapter.return_value = mock_obs_adapter_instance
+
+        adapter = ObsUploadAdapterImpl(self.meeting)
+        video_object, cover_object = adapter.upload(self.video_path, self.cover_path)
+
+        # Should return None, None when cover result format is unexpected
+        self.assertIsNone(video_object)
+        self.assertIsNone(cover_object)
+        # Verify upload_file was called twice (video then cover)
+        self.assertEqual(mock_obs_adapter_instance.upload_file.call_count, 2)

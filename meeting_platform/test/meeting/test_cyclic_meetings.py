@@ -11,23 +11,19 @@ Tests cover:
 - Sub-meeting generation and validation
 - Date expansion logic verification
 """
-import copy
 import logging
 from datetime import datetime, timedelta
 from unittest import mock
 
 from rest_framework import status
 
-from meeting.models import Meeting, MeetingCycleDate, MeetingCycleSubMeeting
+from meeting.models import Meeting, MeetingCycleSubMeeting
 from meeting_platform.test.meeting.test_base import BaseCyclicMeetingTest
 from meeting_platform.test.meeting.fixtures import (
     create_daily_cycle_data,
     create_weekly_cycle_data,
     create_monthly_cycle_data,
-    create_cyclic_meeting_data,
-    get_future_date
 )
-from meeting_platform.utils.ret_code import RetCode
 
 logger = logging.getLogger("log")
 
@@ -682,6 +678,165 @@ class SubMeetingTest(BaseCyclicMeetingTest):
                            f"Sub-meeting start {sm.start} != cycle start {cycle_date.start}")
             self.assertEqual(sm.end, cycle_date.end,
                            f"Sub-meeting end {sm.end} != cycle end {cycle_date.end}")
+
+
+class DeleteCycleMeetingTest(BaseCyclicMeetingTest):
+    """Test cases for deleting cycle meetings and sub-meeting status updates."""
+
+    url = "/inner/v1/meeting/meeting/"
+
+    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
+    def test_delete_cycle_meeting_updates_sub_status_to_cancelled(self, mock_create):
+        """
+        Test deleting a cycle meeting updates all sub-meetings status to CANCELLED.
+
+        When deleting a cycle meeting, verify all ongoing/pending sub-meetings
+        get status updated to CANCELLED (value = 4).
+        """
+        # Setup: Create a cycle meeting with multiple sub-meetings
+        mock_create.return_value = {
+            'mid': 'DELETE_CYCLE_TEST',
+            'join_url': 'https://test.zoom.us/j/delete',
+            'host_id': 'host_delete@test.com',
+            'sub_info': [
+                {
+                    'sub_id': 'SUB_DELETE_1',
+                    'date': str((datetime.now().date() + timedelta(days=1))),
+                    'start': '08:00',
+                    'end': '09:00'
+                },
+                {
+                    'sub_id': 'SUB_DELETE_2',
+                    'date': str((datetime.now().date() + timedelta(days=2))),
+                    'start': '08:00',
+                    'end': '09:00'
+                },
+                {
+                    'sub_id': 'SUB_DELETE_3',
+                    'date': str((datetime.now().date() + timedelta(days=3))),
+                    'start': '08:00',
+                    'end': '09:00'
+                },
+            ]
+        }
+
+        # Create the cycle meeting via API
+        data = create_daily_cycle_data(interval=1, duration_days=7)
+        response = self.client.post(self.url, data=data)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        meeting_id = self.get_response_data(response)['data']
+        meeting = Meeting.objects.get(id=meeting_id)
+
+        # Verify sub-meetings were created with initial status (NOT_STARTED or default)
+        sub_meetings = MeetingCycleSubMeeting.objects.filter(mid=meeting.mid)
+        self.assertEqual(sub_meetings.count(), 3)
+
+        # Set some sub-meetings to different statuses to test the update
+        from meeting.domain.primitive.meeting_status import BusinessMeetingStatus
+
+        # Set sub_meeting 1 to ONGOING status
+        sub1 = sub_meetings.filter(sub_id='SUB_DELETE_1').first()
+        sub1.status = BusinessMeetingStatus.ONGOING.value
+        sub1.save()
+
+        # Set sub_meeting 2 to NOT_STARTED status
+        sub2 = sub_meetings.filter(sub_id='SUB_DELETE_2').first()
+        sub2.status = BusinessMeetingStatus.NOT_STARTED.value
+        sub2.save()
+
+        # Set sub_meeting 3 to OVERTIME status
+        sub3 = sub_meetings.filter(sub_id='SUB_DELETE_3').first()
+        sub3.status = BusinessMeetingStatus.OVERTIME.value
+        sub3.save()
+
+        # Delete the cycle meeting via API
+        with mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.delete') as mock_delete:
+            mock_delete.return_value = None
+
+            delete_url = f"{self.url}{meeting_id}/"
+            response = self.client.delete(delete_url)
+
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Verify all sub-meetings status updated to CANCELLED
+        sub1.refresh_from_db()
+        sub2.refresh_from_db()
+        sub3.refresh_from_db()
+
+        self.assertEqual(sub1.status, BusinessMeetingStatus.CANCELLED.value,
+                        "Sub-meeting 1 status should be CANCELLED after parent deletion")
+        self.assertEqual(sub2.status, BusinessMeetingStatus.CANCELLED.value,
+                        "Sub-meeting 2 status should be CANCELLED after parent deletion")
+        self.assertEqual(sub3.status, BusinessMeetingStatus.CANCELLED.value,
+                        "Sub-meeting 3 status should be CANCELLED after parent deletion")
+
+        # Verify parent meeting is marked as deleted
+        meeting.refresh_from_db()
+        self.assertEqual(meeting.is_delete, 1)
+
+    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
+    def test_delete_cycle_meeting_with_various_sub_statuses(self, mock_create):
+        """
+        Test deleting cycle meeting updates all sub-meetings regardless of their current status.
+
+        This test verifies that sub-meetings with different statuses (ONGOING, NOT_STARTED,
+        OVERTIME, ENDED) are all updated to CANCELLED when the parent cycle meeting is deleted.
+        """
+        from meeting.domain.primitive.meeting_status import BusinessMeetingStatus
+
+        # Setup: Create a cycle meeting with 5 sub-meetings
+        mock_create.return_value = {
+            'mid': 'DELETE_VARIOUS_TEST',
+            'join_url': 'https://test.zoom.us/j/various',
+            'host_id': 'host_various@test.com',
+            'sub_info': [
+                {
+                    'sub_id': f'SUB_VARIOUS_{i}',
+                    'date': str((datetime.now().date() + timedelta(days=i+1))),
+                    'start': '08:00',
+                    'end': '09:00'
+                }
+                for i in range(5)
+            ]
+        }
+
+        data = create_daily_cycle_data(interval=1, duration_days=10)
+        response = self.client.post(self.url, data=data)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        meeting_id = self.get_response_data(response)['data']
+        meeting = Meeting.objects.get(id=meeting_id)
+
+        sub_meetings = MeetingCycleSubMeeting.objects.filter(mid=meeting.mid)
+        self.assertEqual(sub_meetings.count(), 5)
+
+        # Set different statuses for each sub-meeting
+        statuses = [
+            BusinessMeetingStatus.NOT_STARTED.value,
+            BusinessMeetingStatus.ONGOING.value,
+            BusinessMeetingStatus.ENDED.value,
+            BusinessMeetingStatus.OVERTIME.value,
+            BusinessMeetingStatus.CANCELLED.value,  # Already cancelled
+        ]
+
+        for i, sub in enumerate(sub_meetings):
+            sub.status = statuses[i]
+            sub.save()
+
+        # Delete the cycle meeting
+        with mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.delete') as mock_delete:
+            mock_delete.return_value = None
+
+            delete_url = f"{self.url}{meeting_id}/"
+            response = self.client.delete(delete_url)
+
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Verify all sub-meetings are now CANCELLED
+        for sub in sub_meetings:
+            sub.refresh_from_db()
+            self.assertEqual(sub.status, BusinessMeetingStatus.CANCELLED.value)
 
 
 class PrivateMeetingCyclicTest(BaseCyclicMeetingTest):
