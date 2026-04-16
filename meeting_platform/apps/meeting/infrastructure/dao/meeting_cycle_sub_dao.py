@@ -353,7 +353,7 @@ class MeetingCycleSubMeetingDao:
         sponsor = filters.get('sponsor')
         if sponsor:
             sponsor = sponsor.split(",")
-            query_set = query_set.filter(sponsor__in=sponsor)
+            query_set = query_set.filter(meeting__sponsor__in=sponsor)
 
         # SIG筛选
         group_name = filters.get('group_name')

@@ -1189,3 +1189,384 @@ class MeetingCycleSubMeetingDaoWarningEmailTest(TestCommonMeeting):
 
         # Should return a queryset
         self.assertIsNotNone(result)
+
+    def test_update_status_by_mid(self):
+        """Test update_status_by_mid updates all sub meetings (covers line 70)."""
+        parent = self._create_parent_meeting()
+        sub1 = self._create_sub_meeting(parent, status=BusinessMeetingStatus.NOT_STARTED.value)
+        sub2 = self._create_sub_meeting(parent, sub_id=f"sub2_{datetime.datetime.now().timestamp()}", status=BusinessMeetingStatus.NOT_STARTED.value)
+
+        result = MeetingCycleSubMeetingDao.update_status_by_mid(parent.mid, BusinessMeetingStatus.CANCELLED.value)
+
+        # Verify all sub meetings updated
+        updated_sub1 = MeetingCycleSubMeetingDao.get_by_sub_id(sub1.sub_id)
+        updated_sub2 = MeetingCycleSubMeetingDao.get_by_sub_id(sub2.sub_id)
+        self.assertEqual(updated_sub1.status, BusinessMeetingStatus.CANCELLED.value)
+        self.assertEqual(updated_sub2.status, BusinessMeetingStatus.CANCELLED.value)
+
+    def test_get_ongoing_sub_meetings(self):
+        """Test get_ongoing_sub_meetings returns ongoing meetings (covers line 87)."""
+        parent = self._create_parent_meeting()
+        sub_ongoing = self._create_sub_meeting(parent, status=BusinessMeetingStatus.ONGOING.value)
+        sub_not_started = self._create_sub_meeting(parent, sub_id=f"sub2_{datetime.datetime.now().timestamp()}", status=BusinessMeetingStatus.NOT_STARTED.value)
+
+        result = MeetingCycleSubMeetingDao.get_ongoing_sub_meetings(self.community)
+
+        # Should only return ongoing meetings
+        result_ids = [s.id for s in result]
+        self.assertIn(sub_ongoing.id, result_ids)
+        self.assertNotIn(sub_not_started.id, result_ids)
+
+    def test_get_ongoing_sub_meetings_for_warning(self):
+        """Test get_ongoing_sub_meetings_for_warning returns correct meetings (covers lines 140-152)."""
+        parent = self._create_parent_meeting()
+
+        now = datetime.datetime.now()
+        end_time = (now + datetime.timedelta(hours=1)).strftime('%H:%M')
+
+        sub = self._create_sub_meeting(
+            parent,
+            end=end_time,
+            status=BusinessMeetingStatus.ONGOING.value,
+            warning_email_sent=False
+        )
+
+        result = MeetingCycleSubMeetingDao.get_ongoing_sub_meetings_for_warning(self.community, self.today)
+
+        # Should return meetings that need warning
+        result_ids = [s.id for s in result]
+        self.assertIn(sub.id, result_ids)
+
+    def test_get_next_sub_meeting_start_time_returns_none(self):
+        """Test get_next_sub_meeting_start_time returns None when no next meeting (covers line 177)."""
+        host_id = "host@test.com"
+        parent = self._create_parent_meeting(host_id=host_id)
+
+        MeetingCycleSubMeetingDao.create(
+            mid=parent.mid, sub_id=f"sub1_{datetime.datetime.now().timestamp()}",
+            date=self.today, start="10:00", end="11:00", meeting=parent,
+            status=BusinessMeetingStatus.NOT_STARTED.value
+        )
+
+        result = MeetingCycleSubMeetingDao.get_next_sub_meeting_start_time(
+            self.community, host_id, self.today, "11:00"
+        )
+
+        self.assertIsNone(result)
+
+    def test_get_expanded_sub_meetings_with_date_filter(self):
+        """Test get_expanded_sub_meetings with date filter (covers line 224)."""
+        parent = self._create_parent_meeting()
+        sub = self._create_sub_meeting(parent)
+
+        result = MeetingCycleSubMeetingDao.get_expanded_sub_meetings(
+            self.community, {'date': self.today}
+        )
+
+        # Should return filtered results
+        for r in result:
+            self.assertEqual(str(r['date']), self.today)
+
+    def test_get_expanded_sub_meetings_with_date_range_filter(self):
+        """Test get_expanded_sub_meetings with date range filter (covers line 229)."""
+        parent = self._create_parent_meeting()
+        sub = self._create_sub_meeting(parent)
+
+        result = MeetingCycleSubMeetingDao.get_expanded_sub_meetings(
+            self.community, {'start_date': self.today, 'end_date': self.today}
+        )
+
+        self.assertTrue(len(result) >= 1)
+
+    def test_get_expanded_sub_meetings_with_sponsor_filter(self):
+        """Test get_expanded_sub_meetings with sponsor filter (covers line 234)."""
+        parent = self._create_parent_meeting(sponsor="Alice")
+        sub = self._create_sub_meeting(parent)
+
+        result = MeetingCycleSubMeetingDao.get_expanded_sub_meetings(
+            self.community, {'sponsor': 'Alice'}
+        )
+
+        for r in result:
+            self.assertEqual(r['sponsor'], 'Alice')
+
+    def test_get_expanded_sub_meetings_with_group_name_filter(self):
+        """Test get_expanded_sub_meetings with group_name filter (covers line 239)."""
+        parent = self._create_parent_meeting(group_name="SIG-Arch")
+        sub = self._create_sub_meeting(parent)
+
+        result = MeetingCycleSubMeetingDao.get_expanded_sub_meetings(
+            self.community, {'group_name': 'SIG'}
+        )
+
+        self.assertTrue(len(result) >= 1)
+
+    def test_get_expanded_sub_meetings_with_platform_filter(self):
+        """Test get_expanded_sub_meetings with platform filter (covers line 244)."""
+        parent = self._create_parent_meeting()
+        sub = self._create_sub_meeting(parent)
+
+        result = MeetingCycleSubMeetingDao.get_expanded_sub_meetings(
+            self.community, {'platform': 'WELINK'}
+        )
+
+        for r in result:
+            self.assertEqual(r['platform'], 'WELINK')
+
+    def test_get_expanded_sub_meetings_queryset_with_status_filter(self):
+        """Test get_expanded_sub_meetings_queryset with status filter (covers lines 286-289)."""
+        parent = self._create_parent_meeting()
+        sub = self._create_sub_meeting(parent, status=BusinessMeetingStatus.ONGOING.value)
+
+        result = MeetingCycleSubMeetingDao.get_expanded_sub_meetings_queryset(
+            self.community, {'status': BusinessMeetingStatus.ONGOING.value}
+        )
+
+        result_list = list(result)
+        for r in result_list:
+            self.assertEqual(r['status'], BusinessMeetingStatus.ONGOING.value)
+
+    def test_get_expanded_sub_meetings_queryset_with_cancelled_status(self):
+        """Test get_expanded_sub_meetings_queryset with cancelled status (covers line 289)."""
+        parent = self._create_parent_meeting(is_delete=1)
+        sub = self._create_sub_meeting(parent)
+
+        result = MeetingCycleSubMeetingDao.get_expanded_sub_meetings_queryset(
+            self.community, {'status': BusinessMeetingStatus.CANCELLED.value}
+        )
+
+        # Should return meetings where parent is deleted
+        result_list = list(result)
+        for r in result_list:
+            self.assertEqual(r['meeting__is_delete'], 1)
+
+    def test_get_expanded_sub_meetings_queryset_with_date_range(self):
+        """Test get_expanded_sub_meetings_queryset with date range filter (covers line 299)."""
+        parent = self._create_parent_meeting()
+        sub = self._create_sub_meeting(parent)
+
+        result = MeetingCycleSubMeetingDao.get_expanded_sub_meetings_queryset(
+            self.community, {'start_date': self.today, 'end_date': self.today}
+        )
+
+        self.assertIsNotNone(result)
+
+    def test_get_expanded_sub_meetings_queryset_with_sponsor(self):
+        """Test get_expanded_sub_meetings_queryset with sponsor filter (covers line 304)."""
+        parent = self._create_parent_meeting(sponsor="TestUser")
+        sub = self._create_sub_meeting(parent)
+
+        result = MeetingCycleSubMeetingDao.get_expanded_sub_meetings_queryset(
+            self.community, {'sponsor': 'TestUser'}
+        )
+
+        result_list = list(result)
+        for r in result_list:
+            self.assertEqual(r['meeting__sponsor'], 'TestUser')
+
+    def test_get_expanded_sub_meetings_queryset_with_group_name(self):
+        """Test get_expanded_sub_meetings_queryset with group_name filter (covers line 309)."""
+        parent = self._create_parent_meeting(group_name="TestSIG")
+        sub = self._create_sub_meeting(parent)
+
+        result = MeetingCycleSubMeetingDao.get_expanded_sub_meetings_queryset(
+            self.community, {'group_name': 'TestSIG'}
+        )
+
+        result_list = list(result)
+        for r in result_list:
+            self.assertIn('TestSIG', r['meeting__group_name'])
+
+    def test_get_expanded_sub_meetings_queryset_with_platform(self):
+        """Test get_expanded_sub_meetings_queryset with platform filter (covers line 314)."""
+        parent = self._create_parent_meeting()
+        sub = self._create_sub_meeting(parent)
+
+        result = MeetingCycleSubMeetingDao.get_expanded_sub_meetings_queryset(
+            self.community, {'platform': 'WELINK'}
+        )
+
+        result_list = list(result)
+        for r in result_list:
+            self.assertEqual(r['meeting__platform'], 'WELINK')
+
+    def test_get_expanded_sub_meetings_queryset_with_topic(self):
+        """Test get_expanded_sub_meetings_queryset with topic filter (covers line 319)."""
+        parent = self._create_parent_meeting(topic="Important Meeting")
+        sub = self._create_sub_meeting(parent)
+
+        result = MeetingCycleSubMeetingDao.get_expanded_sub_meetings_queryset(
+            self.community, {'topic': 'Important'}
+        )
+
+        result_list = list(result)
+        for r in result_list:
+            self.assertIn('Important', r['meeting__topic'])
+
+    def test_get_expanded_sub_meetings_count_with_date_range(self):
+        """Test get_expanded_sub_meetings_count with date range (covers line 350)."""
+        parent = self._create_parent_meeting()
+        sub = self._create_sub_meeting(parent)
+
+        result = MeetingCycleSubMeetingDao.get_expanded_sub_meetings_count(
+            self.community, {'start_date': self.today, 'end_date': self.today}
+        )
+
+        self.assertEqual(result, 1)
+
+    def test_get_expanded_sub_meetings_count_with_group_name(self):
+        """Test get_expanded_sub_meetings_count with group_name filter (covers line 361)."""
+        parent = self._create_parent_meeting(group_name="TestSIG")
+        sub = self._create_sub_meeting(parent)
+
+        result = MeetingCycleSubMeetingDao.get_expanded_sub_meetings_count(
+            self.community, {'group_name': 'Test'}
+        )
+
+        self.assertEqual(result, 1)
+
+    def test_get_expanded_sub_meetings_count_with_platform(self):
+        """Test get_expanded_sub_meetings_count with platform filter (covers line 366)."""
+        parent = self._create_parent_meeting()
+        sub = self._create_sub_meeting(parent)
+
+        result = MeetingCycleSubMeetingDao.get_expanded_sub_meetings_count(
+            self.community, {'platform': 'WELINK'}
+        )
+
+        self.assertEqual(result, 1)
+
+    def test_get_expanded_sub_meetings_count_with_topic(self):
+        """Test get_expanded_sub_meetings_count with topic filter (covers line 371)."""
+        parent = self._create_parent_meeting(topic="Important Meeting")
+        sub = self._create_sub_meeting(parent)
+
+        result = MeetingCycleSubMeetingDao.get_expanded_sub_meetings_count(
+            self.community, {'topic': 'Important'}
+        )
+
+        self.assertEqual(result, 1)
+
+    def test_get_expanded_sub_meetings_count_with_sponsor_split(self):
+        """Test get_expanded_sub_meetings_count with sponsor splitting (covers lines 355-356)."""
+        parent1 = self._create_parent_meeting(sponsor="Alice")
+        sub1 = self._create_sub_meeting(parent1)
+        parent2 = self._create_parent_meeting(sponsor="Bob", mid=f"cycle_mid2_{datetime.datetime.now().timestamp()}")
+        sub2 = self._create_sub_meeting(parent2)
+
+        # Test sponsor split by comma
+        result = MeetingCycleSubMeetingDao.get_expanded_sub_meetings_count(
+            self.community, {'sponsor': 'Alice,Bob'}
+        )
+
+        # Should count both sponsors after split
+        self.assertEqual(result, 2)
+
+    def test_get_expanded_sub_meetings_count_with_single_sponsor_split(self):
+        """Test get_expanded_sub_meetings_count with single sponsor (no split needed)."""
+        parent = self._create_parent_meeting(sponsor="Alice")
+        sub = self._create_sub_meeting(parent)
+
+        result = MeetingCycleSubMeetingDao.get_expanded_sub_meetings_count(
+            self.community, {'sponsor': 'Alice'}
+        )
+
+        self.assertEqual(result, 1)
+
+    def test_get_expanded_sub_meetings_excludes_private_by_default(self):
+        """Test get_expanded_sub_meetings excludes private meetings by default (covers lines 247-248)."""
+        parent_public = self._create_parent_meeting(is_private=False)
+        sub_public = self._create_sub_meeting(parent_public)
+        parent_private = self._create_parent_meeting(is_private=True, mid=f"cycle_mid_private_{datetime.datetime.now().timestamp()}")
+        sub_private = self._create_sub_meeting(parent_private)
+
+        # Without include_private filter, should only return public meetings
+        result = MeetingCycleSubMeetingDao.get_expanded_sub_meetings(self.community, {})
+        result_mids = [r['mid'] for r in result]
+        self.assertIn(parent_public.mid, result_mids)
+        self.assertNotIn(parent_private.mid, result_mids)
+
+    def test_get_expanded_sub_meetings_includes_private_when_set(self):
+        """Test get_expanded_sub_meetings includes private meetings when include_private=True."""
+        parent_public = self._create_parent_meeting(is_private=False)
+        sub_public = self._create_sub_meeting(parent_public)
+        parent_private = self._create_parent_meeting(is_private=True, mid=f"cycle_mid_private_{datetime.datetime.now().timestamp()}")
+        sub_private = self._create_sub_meeting(parent_private)
+
+        # With include_private=True, should return both public and private meetings
+        result = MeetingCycleSubMeetingDao.get_expanded_sub_meetings(self.community, {'include_private': True})
+        result_mids = [r['mid'] for r in result]
+        self.assertIn(parent_public.mid, result_mids)
+        self.assertIn(parent_private.mid, result_mids)
+
+    def test_get_expanded_sub_meetings_queryset_excludes_private_by_default(self):
+        """Test get_expanded_sub_meetings_queryset excludes private meetings by default (covers lines 322-323)."""
+        parent_public = self._create_parent_meeting(is_private=False)
+        sub_public = self._create_sub_meeting(parent_public)
+        parent_private = self._create_parent_meeting(is_private=True, mid=f"cycle_mid_private_{datetime.datetime.now().timestamp()}")
+        sub_private = self._create_sub_meeting(parent_private)
+
+        # Without include_private filter, should only return public meetings
+        result = MeetingCycleSubMeetingDao.get_expanded_sub_meetings_queryset(self.community, {})
+        result_list = list(result)
+        result_mids = [r['mid'] for r in result_list]
+        self.assertIn(parent_public.mid, result_mids)
+        self.assertNotIn(parent_private.mid, result_mids)
+
+    def test_get_expanded_sub_meetings_queryset_includes_private_when_set(self):
+        """Test get_expanded_sub_meetings_queryset includes private meetings when include_private=True."""
+        parent_public = self._create_parent_meeting(is_private=False)
+        sub_public = self._create_sub_meeting(parent_public)
+        parent_private = self._create_parent_meeting(is_private=True, mid=f"cycle_mid_private_{datetime.datetime.now().timestamp()}")
+        sub_private = self._create_sub_meeting(parent_private)
+
+        # With include_private=True, should return both public and private meetings
+        result = MeetingCycleSubMeetingDao.get_expanded_sub_meetings_queryset(self.community, {'include_private': True})
+        result_list = list(result)
+        result_mids = [r['mid'] for r in result_list]
+        self.assertIn(parent_public.mid, result_mids)
+        self.assertIn(parent_private.mid, result_mids)
+
+    def test_get_expanded_sub_meetings_count_excludes_private_by_default(self):
+        """Test get_expanded_sub_meetings_count excludes private meetings by default (covers lines 374-375)."""
+        parent_public = self._create_parent_meeting(is_private=False)
+        sub_public = self._create_sub_meeting(parent_public)
+        parent_private = self._create_parent_meeting(is_private=True, mid=f"cycle_mid_private_{datetime.datetime.now().timestamp()}")
+        sub_private = self._create_sub_meeting(parent_private)
+
+        # Without include_private filter, should only count public meetings
+        result = MeetingCycleSubMeetingDao.get_expanded_sub_meetings_count(self.community, {})
+        self.assertEqual(result, 1)
+
+    def test_get_expanded_sub_meetings_count_includes_private_when_set(self):
+        """Test get_expanded_sub_meetings_count includes private meetings when include_private=True."""
+        parent_public = self._create_parent_meeting(is_private=False)
+        sub_public = self._create_sub_meeting(parent_public)
+        parent_private = self._create_parent_meeting(is_private=True, mid=f"cycle_mid_private_{datetime.datetime.now().timestamp()}")
+        sub_private = self._create_sub_meeting(parent_private)
+
+        # With include_private=True, should count both public and private meetings
+        result = MeetingCycleSubMeetingDao.get_expanded_sub_meetings_count(self.community, {'include_private': True})
+        self.assertEqual(result, 2)
+
+    def test_get_next_sub_meeting_start_time_returns_time(self):
+        """Test get_next_sub_meeting_start_time returns time when next meeting exists."""
+        host_id = "host@test.com"
+        parent = self._create_parent_meeting(host_id=host_id)
+
+        MeetingCycleSubMeetingDao.create(
+            mid=parent.mid, sub_id=f"sub1_{datetime.datetime.now().timestamp()}",
+            date=self.today, start="10:00", end="11:00", meeting=parent,
+            status=BusinessMeetingStatus.NOT_STARTED.value
+        )
+        MeetingCycleSubMeetingDao.create(
+            mid=parent.mid, sub_id=f"sub2_{datetime.datetime.now().timestamp()}",
+            date=self.today, start="14:00", end="15:00", meeting=parent,
+            status=BusinessMeetingStatus.NOT_STARTED.value
+        )
+
+        result = MeetingCycleSubMeetingDao.get_next_sub_meeting_start_time(
+            self.community, host_id, self.today, "11:00"
+        )
+
+        self.assertEqual(result, "14:00")

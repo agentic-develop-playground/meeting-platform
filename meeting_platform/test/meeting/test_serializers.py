@@ -217,6 +217,54 @@ class MeetingListQuerySerializerTest(TestCommonMeeting):
         self.clear_meetings()
         self.clear_all_users()
 
+    def test_validate_date_with_value(self):
+        """Test validate_date returns formatted date (covers lines 73-75)."""
+        with mock.patch('django.conf.settings.COMMUNITY_SUPPORT', [self.community]):
+            with mock.patch('meeting_platform.utils.check_params.check_date') as mock_check:
+                mock_check.return_value = datetime.datetime(2026, 4, 15)
+                serializer = MeetingListQuerySerializer()
+                result = serializer.validate_date("2026-04-15")
+                self.assertEqual(result, "2026-04-15")
+
+    def test_validate_date_with_none(self):
+        """Test validate_date returns None when value is None."""
+        with mock.patch('django.conf.settings.COMMUNITY_SUPPORT', [self.community]):
+            serializer = MeetingListQuerySerializer()
+            result = serializer.validate_date(None)
+            self.assertIsNone(result)
+
+    def test_validate_start_date_with_value(self):
+        """Test validate_start_date returns formatted date (covers lines 79-81)."""
+        with mock.patch('django.conf.settings.COMMUNITY_SUPPORT', [self.community]):
+            with mock.patch('meeting_platform.utils.check_params.check_date') as mock_check:
+                mock_check.return_value = datetime.datetime(2026, 4, 1)
+                serializer = MeetingListQuerySerializer()
+                result = serializer.validate_start_date("2026-04-01")
+                self.assertEqual(result, "2026-04-01")
+
+    def test_validate_start_date_with_none(self):
+        """Test validate_start_date returns None when value is None."""
+        with mock.patch('django.conf.settings.COMMUNITY_SUPPORT', [self.community]):
+            serializer = MeetingListQuerySerializer()
+            result = serializer.validate_start_date(None)
+            self.assertIsNone(result)
+
+    def test_validate_end_date_with_value(self):
+        """Test validate_end_date returns formatted date (covers lines 85-87)."""
+        with mock.patch('django.conf.settings.COMMUNITY_SUPPORT', [self.community]):
+            with mock.patch('meeting_platform.utils.check_params.check_date') as mock_check:
+                mock_check.return_value = datetime.datetime(2026, 4, 30)
+                serializer = MeetingListQuerySerializer()
+                result = serializer.validate_end_date("2026-04-30")
+                self.assertEqual(result, "2026-04-30")
+
+    def test_validate_end_date_with_none(self):
+        """Test validate_end_date returns None when value is None."""
+        with mock.patch('django.conf.settings.COMMUNITY_SUPPORT', [self.community]):
+            serializer = MeetingListQuerySerializer()
+            result = serializer.validate_end_date(None)
+            self.assertIsNone(result)
+
     def test_validate_page_size_min(self):
         """Test page size minimum value."""
         data = {
@@ -399,6 +447,87 @@ class MeetingListSerializerTest(TestCommonMeeting):
         self.assertEqual(result['is_cycle'], False)
         self.assertIsNone(result['sub_id'])
 
+    def test_get_status_cancelled(self):
+        """Test get_status returns CANCELLED when is_delete is True (covers line 879)."""
+        data = {
+            'id': 1,
+            'topic': 'Test Meeting',
+            'sponsor': 'Test Sponsor',
+            'group_name': 'Test SIG',
+            'community': 'openEuler',
+            'platform': 'welink',
+            'date': '2026-04-15',
+            'start': '10:00',
+            'end': '11:00',
+            'status': BusinessMeetingStatus.ONGOING.value,
+            'is_cycle': False,
+            'sub_id': None,
+            'mid': 'test_mid',
+            'is_delete': True,
+            'agenda': None,
+            'etherpad': None,
+            'join_url': None,
+        }
+
+        serializer = MeetingListSerializer(data)
+        result = serializer.data
+
+        self.assertEqual(result['status'], BusinessMeetingStatus.CANCELLED.value)
+
+    def test_get_status_cancelled_with_int(self):
+        """Test get_status returns CANCELLED when is_delete is 1."""
+        data = {
+            'id': 1,
+            'topic': 'Test Meeting',
+            'sponsor': 'Test Sponsor',
+            'group_name': 'Test SIG',
+            'community': 'openEuler',
+            'platform': 'welink',
+            'date': '2026-04-15',
+            'start': '10:00',
+            'end': '11:00',
+            'status': BusinessMeetingStatus.ONGOING.value,
+            'is_cycle': False,
+            'sub_id': None,
+            'mid': 'test_mid',
+            'is_delete': 1,
+            'agenda': None,
+            'etherpad': None,
+            'join_url': None,
+        }
+
+        serializer = MeetingListSerializer(data)
+        result = serializer.data
+
+        self.assertEqual(result['status'], BusinessMeetingStatus.CANCELLED.value)
+
+    def test_get_status_cancelled_with_string(self):
+        """Test get_status returns CANCELLED when is_delete is '1' (covers line 879)."""
+        data = {
+            'id': 1,
+            'topic': 'Test Meeting',
+            'sponsor': 'Test Sponsor',
+            'group_name': 'Test SIG',
+            'community': 'openEuler',
+            'platform': 'welink',
+            'date': '2026-04-15',
+            'start': '10:00',
+            'end': '11:00',
+            'status': BusinessMeetingStatus.ONGOING.value,
+            'is_cycle': False,
+            'sub_id': None,
+            'mid': 'test_mid',
+            'is_delete': '1',
+            'agenda': None,
+            'etherpad': None,
+            'join_url': None,
+        }
+
+        serializer = MeetingListSerializer(data)
+        result = serializer.data
+
+        self.assertEqual(result['status'], BusinessMeetingStatus.CANCELLED.value)
+
 
 class CalculateBusinessStatusTest(TestCommonMeeting):
     """Test calculate_business_status function."""
@@ -511,6 +640,19 @@ class CalculateBusinessStatusTest(TestCommonMeeting):
         result = calculate_business_status(meeting_data)
         self.assertEqual(result, BusinessMeetingStatus.CANCELLED.value)
 
+    def test_status_cancelled_with_string(self):
+        """Test status when is_delete is '1' string (covers line 112)."""
+        meeting_data = {
+            'date': '2026-04-15',
+            'start': '10:00',
+            'end': '11:00',
+            'status': BusinessMeetingStatus.NOT_STARTED.value,
+            'is_delete': '1'
+        }
+
+        result = calculate_business_status(meeting_data)
+        self.assertEqual(result, BusinessMeetingStatus.CANCELLED.value)
+
     def test_status_missing_fields(self):
         """Test status returns NOT_STARTED when fields are missing."""
         meeting_data = {
@@ -519,6 +661,53 @@ class CalculateBusinessStatusTest(TestCommonMeeting):
         }
 
         result = calculate_business_status(meeting_data)
+        self.assertEqual(result, BusinessMeetingStatus.NOT_STARTED.value)
+
+    def test_status_invalid_date_format(self):
+        """Test status returns NOT_STARTED when date format is invalid (covers lines 126-127)."""
+        meeting_data = {
+            'date': 'invalid-date',
+            'start': '10:00',
+            'end': '11:00',
+            'status': BusinessMeetingStatus.NOT_STARTED.value,
+            'is_delete': False
+        }
+
+        result = calculate_business_status(meeting_data)
+        self.assertEqual(result, BusinessMeetingStatus.NOT_STARTED.value)
+
+    def test_status_invalid_time_format(self):
+        """Test status returns NOT_STARTED when time format is invalid."""
+        meeting_data = {
+            'date': '2026-04-15',
+            'start': 'invalid',
+            'end': '11:00',
+            'status': BusinessMeetingStatus.NOT_STARTED.value,
+            'is_delete': False
+        }
+
+        result = calculate_business_status(meeting_data)
+        self.assertEqual(result, BusinessMeetingStatus.NOT_STARTED.value)
+
+    def test_status_default_return(self):
+        """Test status returns database status when no other condition matches (covers line 146)."""
+        # Meeting in progress but time check fails all specific conditions
+        now = datetime.datetime.now()
+        meeting_date = now.strftime('%Y-%m-%d')
+        # Meeting is currently ongoing and time is within range
+        meeting_start = (now - datetime.timedelta(minutes=30)).strftime('%H:%M')
+        meeting_end = (now + datetime.timedelta(minutes=30)).strftime('%H:%M')
+
+        meeting_data = {
+            'date': meeting_date,
+            'start': meeting_start,
+            'end': meeting_end,
+            'status': BusinessMeetingStatus.NOT_STARTED.value,  # Database says NOT_STARTED
+            'is_delete': False
+        }
+
+        result = calculate_business_status(meeting_data, now)
+        # Should return NOT_STARTED since time is in range but status is NOT_STARTED
         self.assertEqual(result, BusinessMeetingStatus.NOT_STARTED.value)
 
 
@@ -547,6 +736,28 @@ class MeetingSerializerMethodTest(TestCommonMeeting):
         # Duration should be roughly calculated
         self.assertIsNotNone(result)
 
+    def test_get_duration_none_start(self):
+        """Test get_duration returns None when start is None (covers line 422)."""
+        serializer = MeetingSerializer()
+
+        obj = mock.MagicMock()
+        obj.start = None
+        obj.end = "11:30"
+
+        result = serializer.get_duration(obj)
+        self.assertIsNone(result)
+
+    def test_get_duration_none_end(self):
+        """Test get_duration returns None when end is None."""
+        serializer = MeetingSerializer()
+
+        obj = mock.MagicMock()
+        obj.start = "10:00"
+        obj.end = None
+
+        result = serializer.get_duration(obj)
+        self.assertIsNone(result)
+
     def test_get_duration_time(self):
         """Test get_duration_time formatting."""
         serializer = MeetingSerializer()
@@ -559,6 +770,28 @@ class MeetingSerializerMethodTest(TestCommonMeeting):
         # Should return formatted time range
         self.assertIsNotNone(result)
         self.assertIn("10:00", result)
+
+    def test_get_duration_time_none_start(self):
+        """Test get_duration_time returns None when start is None (covers line 428)."""
+        serializer = MeetingSerializer()
+
+        obj = mock.MagicMock()
+        obj.start = None
+        obj.end = "12:30"
+
+        result = serializer.get_duration_time(obj)
+        self.assertIsNone(result)
+
+    def test_get_duration_time_none_end(self):
+        """Test get_duration_time returns None when end is None."""
+        serializer = MeetingSerializer()
+
+        obj = mock.MagicMock()
+        obj.start = "10:00"
+        obj.end = None
+
+        result = serializer.get_duration_time(obj)
+        self.assertIsNone(result)
 
     def test_get_status_not_deleted(self):
         """Test get_status returns database status when not deleted."""
@@ -577,6 +810,28 @@ class MeetingSerializerMethodTest(TestCommonMeeting):
 
         obj = mock.MagicMock()
         obj.is_delete = True
+        obj.status = BusinessMeetingStatus.ONGOING.value
+
+        result = serializer.get_status(obj)
+        self.assertEqual(result, BusinessMeetingStatus.CANCELLED.value)
+
+    def test_get_status_deleted_with_int(self):
+        """Test get_status returns CANCELLED when is_delete is 1."""
+        serializer = MeetingSerializer()
+
+        obj = mock.MagicMock()
+        obj.is_delete = 1
+        obj.status = BusinessMeetingStatus.ONGOING.value
+
+        result = serializer.get_status(obj)
+        self.assertEqual(result, BusinessMeetingStatus.CANCELLED.value)
+
+    def test_get_status_deleted_with_string(self):
+        """Test get_status returns CANCELLED when is_delete is '1'."""
+        serializer = MeetingSerializer()
+
+        obj = mock.MagicMock()
+        obj.is_delete = '1'
         obj.status = BusinessMeetingStatus.ONGOING.value
 
         result = serializer.get_status(obj)
@@ -618,9 +873,73 @@ class SingleMeetingSerializerTest(TestCommonMeeting):
             result = serializer.validate_email_list("user@test.com")
             self.assertEqual(result, "user@test.com")
 
+    def test_get_duration_none_start(self):
+        """Test get_duration returns None when start is None (covers line 689)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+
+        obj = mock.MagicMock()
+        obj.start = None
+        obj.end = "11:30"
+
+        result = serializer.get_duration(obj)
+        self.assertIsNone(result)
+
+    def test_get_duration_time_none_start(self):
+        """Test get_duration_time returns None when start is None (covers line 695)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+
+        obj = mock.MagicMock()
+        obj.start = None
+        obj.end = "12:30"
+
+        result = serializer.get_duration_time(obj)
+        self.assertIsNone(result)
+
+    def test_get_status_cancelled_with_true(self):
+        """Test get_status returns CANCELLED when is_delete is True (covers lines 703-706)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+
+        obj = mock.MagicMock()
+        obj.is_delete = True
+        obj.status = BusinessMeetingStatus.ONGOING.value
+
+        result = serializer.get_status(obj)
+        self.assertEqual(result, BusinessMeetingStatus.CANCELLED.value)
+
+    def test_get_status_cancelled_with_int_1(self):
+        """Test get_status returns CANCELLED when is_delete is 1."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+
+        obj = mock.MagicMock()
+        obj.is_delete = 1
+        obj.status = BusinessMeetingStatus.ONGOING.value
+
+        result = serializer.get_status(obj)
+        self.assertEqual(result, BusinessMeetingStatus.CANCELLED.value)
+
+    def test_get_status_cancelled_with_string_1(self):
+        """Test get_status returns CANCELLED when is_delete is '1'."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+
+        obj = mock.MagicMock()
+        obj.is_delete = '1'
+        obj.status = BusinessMeetingStatus.ONGOING.value
+
+        result = serializer.get_status(obj)
+        self.assertEqual(result, BusinessMeetingStatus.CANCELLED.value)
+
 
 class CycleSubMeetingSerializerTest(TestCommonMeeting):
-    """Test CycleSubMeetingSerializer."""
 
     def setUp(self):
         super().setUp()
@@ -664,3 +983,447 @@ class CycleSubMeetingSerializerTest(TestCommonMeeting):
 
         result = serializer.get_sponsor(obj)
         self.assertEqual(result, "Test Sponsor")
+
+    @mock.patch('meeting.infrastructure.dao.meeting_dao.MeetingDao.get_by_mid')
+    def test_get_is_record_none_when_meeting_not_found(self, mock_get_by_mid):
+        """Test get_is_record returns None when parent meeting not found (covers line 765)."""
+        from meeting.controller.serializers.meeting_serializers import CycleSubMeetingSerializer
+
+        serializer = CycleSubMeetingSerializer()
+
+        obj = mock.MagicMock()
+        obj.mid = "test_mid"
+
+        mock_get_by_mid.return_value = None
+
+        result = serializer.get_is_record(obj)
+        self.assertIsNone(result)
+
+    @mock.patch('meeting.infrastructure.dao.meeting_dao.MeetingDao.get_by_mid')
+    def test_get_sponsor_none_when_meeting_not_found(self, mock_get_by_mid):
+        """Test get_sponsor returns None when parent meeting not found (covers line 775)."""
+        from meeting.controller.serializers.meeting_serializers import CycleSubMeetingSerializer
+
+        serializer = CycleSubMeetingSerializer()
+
+        obj = mock.MagicMock()
+        obj.mid = "test_mid"
+
+        mock_get_by_mid.return_value = None
+
+        result = serializer.get_sponsor(obj)
+        self.assertIsNone(result)
+
+
+class MeetingSerializerValidateNoneTest(TestCommonMeeting):
+    """Test MeetingSerializer validate methods returning None."""
+
+    def setUp(self):
+        super().setUp()
+
+    def tearDown(self):
+        self.clear_meetings()
+        self.clear_all_users()
+
+    def test_validate_date_returns_none(self):
+        """Test validate_date returns None when value is None (covers line 253)."""
+        serializer = MeetingSerializer()
+        result = serializer.validate_date(None)
+        self.assertIsNone(result)
+
+    def test_validate_date_with_value(self):
+        """Test validate_date with actual value (covers lines 251-252)."""
+        serializer = MeetingSerializer()
+        test_date = "2026-04-15"
+        with mock.patch('meeting_platform.utils.check_params.check_date') as mock_check:
+            mock_check.return_value = datetime.datetime(2026, 4, 15)
+            result = serializer.validate_date(test_date)
+            self.assertEqual(result, "2026-04-15")
+
+    def test_validate_start_returns_none(self):
+        """Test validate_start returns None when value is None (covers line 277)."""
+        serializer = MeetingSerializer()
+        result = serializer.validate_start(None)
+        self.assertIsNone(result)
+
+    def test_validate_start_with_value(self):
+        """Test validate_start with actual value (covers lines 274-276)."""
+        serializer = MeetingSerializer()
+        test_time = "10:00"
+        with mock.patch('meeting_platform.utils.check_params.check_time'):
+            result = serializer.validate_start(test_time)
+            self.assertEqual(result, "10:00")
+
+    def test_validate_end_returns_none(self):
+        """Test validate_end returns None when value is None (covers line 284)."""
+        serializer = MeetingSerializer()
+        result = serializer.validate_end(None)
+        self.assertIsNone(result)
+
+    def test_validate_end_with_value(self):
+        """Test validate_end with actual value (covers lines 281-283)."""
+        serializer = MeetingSerializer()
+        test_time = "11:00"
+        with mock.patch('meeting_platform.utils.check_params.check_time'):
+            result = serializer.validate_end(test_time)
+            self.assertEqual(result, "11:00")
+
+    def test_validate_agenda_returns_none(self):
+        """Test validate_agenda returns None when value is None (covers line 314)."""
+        serializer = MeetingSerializer()
+        result = serializer.validate_agenda(None)
+        self.assertIsNone(result)
+
+    def test_validate_agenda_with_value(self):
+        """Test validate_agenda with actual value (covers lines 309-313)."""
+        serializer = MeetingSerializer()
+        with mock.patch('meeting_platform.utils.check_params.check_field') as mock_field:
+            with mock.patch('meeting_platform.utils.check_params.check_invalid_content') as mock_check:
+                with mock.patch.object(serializer, '_check_content_by_audit'):
+                    mock_field.return_value = True
+                    mock_check.return_value = True
+                    result = serializer.validate_agenda("Test agenda content")
+                    self.assertEqual(result, "Test agenda content")
+
+    def test_validate_etherpad_returns_none(self):
+        """Test validate_etherpad returns None when value is None (covers line 305)."""
+        serializer = MeetingSerializer()
+        result = serializer.validate_etherpad(None)
+        self.assertIsNone(result)
+
+    def test_validate_etherpad_with_value(self):
+        """Test validate_etherpad with actual value (covers lines 302-304)."""
+        serializer = MeetingSerializer()
+        with mock.patch('meeting_platform.utils.check_params.check_link'):
+            result = serializer.validate_etherpad("https://etherpad.test.com")
+            self.assertEqual(result, "https://etherpad.test.com")
+
+    def test_validate_email_list_returns_none(self):
+        """Test validate_email_list returns None when value is None (covers line 321)."""
+        serializer = MeetingSerializer()
+        result = serializer.validate_email_list(None)
+        self.assertIsNone(result)
+
+    def test_validate_email_list_with_value(self):
+        """Test validate_email_list with actual value (covers lines 318-320)."""
+        serializer = MeetingSerializer()
+        with mock.patch('meeting_platform.utils.check_params.check_email_list'):
+            result = serializer.validate_email_list("user@test.com")
+            self.assertEqual(result, "user@test.com")
+
+    def test_validate_cycle_start_date_returns_none(self):
+        """Test validate_cycle_start_date returns None when value is None (covers line 335)."""
+        serializer = MeetingSerializer()
+        result = serializer.validate_cycle_start_date(None)
+        self.assertIsNone(result)
+
+    def test_validate_cycle_start_date_with_value(self):
+        """Test validate_cycle_start_date with actual value (covers lines 332-334)."""
+        serializer = MeetingSerializer()
+        with mock.patch('meeting_platform.utils.check_params.check_date'):
+            result = serializer.validate_cycle_start_date("2026-04-15")
+            self.assertEqual(result, "2026-04-15")
+
+    def test_validate_cycle_end_date_returns_none(self):
+        """Test validate_cycle_end_date returns None when value is None (covers line 342)."""
+        serializer = MeetingSerializer()
+        result = serializer.validate_cycle_end_date(None)
+        self.assertIsNone(result)
+
+    def test_validate_cycle_end_date_with_value(self):
+        """Test validate_cycle_end_date with actual value (covers lines 339-341)."""
+        serializer = MeetingSerializer()
+        with mock.patch('meeting_platform.utils.check_params.check_date'):
+            result = serializer.validate_cycle_end_date("2026-04-30")
+            self.assertEqual(result, "2026-04-30")
+
+    def test_validate_cycle_start_returns_none(self):
+        """Test validate_cycle_start returns None when value is None (covers line 349)."""
+        serializer = MeetingSerializer()
+        result = serializer.validate_cycle_start(None)
+        self.assertIsNone(result)
+
+    def test_validate_cycle_start_with_value(self):
+        """Test validate_cycle_start with actual value (covers lines 346-348)."""
+        serializer = MeetingSerializer()
+        with mock.patch('meeting_platform.utils.check_params.check_time'):
+            result = serializer.validate_cycle_start("10:00")
+            self.assertEqual(result, "10:00")
+
+    def test_validate_cycle_end_returns_none(self):
+        """Test validate_cycle_end returns None when value is None (covers line 356)."""
+        serializer = MeetingSerializer()
+        result = serializer.validate_cycle_end(None)
+        self.assertIsNone(result)
+
+    def test_validate_cycle_end_with_value(self):
+        """Test validate_cycle_end with actual value (covers lines 353-355)."""
+        serializer = MeetingSerializer()
+        with mock.patch('meeting_platform.utils.check_params.check_time'):
+            result = serializer.validate_cycle_end("11:00")
+            self.assertEqual(result, "11:00")
+
+    def test_validate_cycle_type_returns_none(self):
+        """Test validate_cycle_type returns None when value is None (covers line 362)."""
+        serializer = MeetingSerializer()
+        result = serializer.validate_cycle_type(None)
+        self.assertIsNone(result)
+
+    def test_validate_cycle_type_with_value(self):
+        """Test validate_cycle_type with actual value (covers line 361)."""
+        serializer = MeetingSerializer()
+        with mock.patch('meeting.domain.primitive.cycle_type.CycleType.check_value') as mock_check:
+            mock_check.return_value = 0
+            result = serializer.validate_cycle_type(0)
+            self.assertEqual(result, 0)
+
+    def test_validate_cycle_interval_returns_none(self):
+        """Test validate_cycle_interval returns None when value is None (covers line 368)."""
+        serializer = MeetingSerializer()
+        result = serializer.validate_cycle_interval(None)
+        self.assertIsNone(result)
+
+    def test_validate_cycle_interval_with_value(self):
+        """Test validate_cycle_interval with actual value (covers line 367)."""
+        serializer = MeetingSerializer()
+        result = serializer.validate_cycle_interval("2")
+        self.assertEqual(result, 2)
+
+    def test_validate_cycle_point_returns_none(self):
+        """Test validate_cycle_point returns None when value is None (covers line 382)."""
+        serializer = MeetingSerializer()
+        result = serializer.validate_cycle_point(None)
+        self.assertIsNone(result)
+
+    def test_validate_cycle_point_with_value(self):
+        """Test validate_cycle_point with actual value (covers lines 374-378)."""
+        serializer = MeetingSerializer()
+        result = serializer.validate_cycle_point("1,3,5")
+        self.assertEqual(result, [1, 3, 5])
+
+
+class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
+    """Test SingleMeetingSerializer validate methods returning None."""
+
+    def setUp(self):
+        super().setUp()
+
+    def tearDown(self):
+        self.clear_meetings()
+        self.clear_all_users()
+
+    def test_validate_email_list_returns_none(self):
+        """Test validate_email_list returns None when value is None (covers line 543)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        result = serializer.validate_email_list(None)
+        self.assertIsNone(result)
+
+    def test_validate_date_returns_none(self):
+        """Test validate_date returns None when value is None (covers line 550)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        result = serializer.validate_date(None)
+        self.assertIsNone(result)
+
+    def test_validate_date_with_value(self):
+        """Test validate_date with actual value (covers lines 547-549)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        with mock.patch('meeting_platform.utils.check_params.check_date') as mock_check:
+            mock_check.return_value = datetime.datetime(2026, 4, 15)
+            result = serializer.validate_date("2026-04-15")
+            self.assertEqual(result, "2026-04-15")
+
+    def test_validate_start_returns_none(self):
+        """Test validate_start returns None when value is None (covers line 557)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        result = serializer.validate_start(None)
+        self.assertIsNone(result)
+
+    def test_validate_start_with_value(self):
+        """Test validate_start with actual value (covers lines 554-556)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        with mock.patch('meeting_platform.utils.check_params.check_time'):
+            result = serializer.validate_start("10:00")
+            self.assertEqual(result, "10:00")
+
+    def test_validate_end_returns_none(self):
+        """Test validate_end returns None when value is None (covers line 564)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        result = serializer.validate_end(None)
+        self.assertIsNone(result)
+
+    def test_validate_end_with_value(self):
+        """Test validate_end with actual value (covers lines 561-563)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        with mock.patch('meeting_platform.utils.check_params.check_time'):
+            result = serializer.validate_end("11:00")
+            self.assertEqual(result, "11:00")
+
+    def test_validate_agenda_returns_none(self):
+        """Test validate_agenda returns None when value is None (covers line 573)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        result = serializer.validate_agenda(None)
+        self.assertIsNone(result)
+
+    def test_validate_agenda_with_value(self):
+        """Test validate_agenda with actual value (covers lines 568-572)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        with mock.patch('meeting_platform.utils.check_params.check_field') as mock_field:
+            with mock.patch('meeting_platform.utils.check_params.check_invalid_content') as mock_check:
+                with mock.patch.object(serializer, '_check_content_by_audit'):
+                    mock_field.return_value = True
+                    mock_check.return_value = True
+                    result = serializer.validate_agenda("Test agenda content")
+                    self.assertEqual(result, "Test agenda content")
+
+    def test_validate_etherpad_returns_none(self):
+        """Test validate_etherpad returns None when value is None (covers line 580)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        result = serializer.validate_etherpad(None)
+        self.assertIsNone(result)
+
+    def test_validate_etherpad_with_value(self):
+        """Test validate_etherpad with actual value (covers lines 577-579)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        with mock.patch('meeting_platform.utils.check_params.check_link'):
+            result = serializer.validate_etherpad("https://etherpad.test.com")
+            self.assertEqual(result, "https://etherpad.test.com")
+
+    def test_validate_cycle_start_date_returns_none(self):
+        """Test validate_cycle_start_date returns None when value is None (covers line 608)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        result = serializer.validate_cycle_start_date(None)
+        self.assertIsNone(result)
+
+    def test_validate_cycle_start_date_with_value(self):
+        """Test validate_cycle_start_date with actual value (covers lines 605-607)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        with mock.patch('meeting_platform.utils.check_params.check_date'):
+            result = serializer.validate_cycle_start_date("2026-04-15")
+            self.assertEqual(result, "2026-04-15")
+
+    def test_validate_cycle_end_date_returns_none(self):
+        """Test validate_cycle_end_date returns None when value is None (covers line 615)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        result = serializer.validate_cycle_end_date(None)
+        self.assertIsNone(result)
+
+    def test_validate_cycle_end_date_with_value(self):
+        """Test validate_cycle_end_date with actual value (covers lines 612-614)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        with mock.patch('meeting_platform.utils.check_params.check_date'):
+            result = serializer.validate_cycle_end_date("2026-04-30")
+            self.assertEqual(result, "2026-04-30")
+
+    def test_validate_cycle_start_returns_none(self):
+        """Test validate_cycle_start returns None when value is None (covers line 622)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        result = serializer.validate_cycle_start(None)
+        self.assertIsNone(result)
+
+    def test_validate_cycle_start_with_value(self):
+        """Test validate_cycle_start with actual value (covers lines 619-621)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        with mock.patch('meeting_platform.utils.check_params.check_time'):
+            result = serializer.validate_cycle_start("10:00")
+            self.assertEqual(result, "10:00")
+
+    def test_validate_cycle_end_returns_none(self):
+        """Test validate_cycle_end returns None when value is None (covers line 629)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        result = serializer.validate_cycle_end(None)
+        self.assertIsNone(result)
+
+    def test_validate_cycle_end_with_value(self):
+        """Test validate_cycle_end with actual value (covers lines 626-628)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        with mock.patch('meeting_platform.utils.check_params.check_time'):
+            result = serializer.validate_cycle_end("11:00")
+            self.assertEqual(result, "11:00")
+
+    def test_validate_cycle_type_returns_none(self):
+        """Test validate_cycle_type returns None when value is None (covers line 635)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        result = serializer.validate_cycle_type(None)
+        self.assertIsNone(result)
+
+    def test_validate_cycle_type_with_value(self):
+        """Test validate_cycle_type with actual value (covers line 634)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        with mock.patch('meeting.domain.primitive.cycle_type.CycleType.check_value') as mock_check:
+            mock_check.return_value = 0
+            result = serializer.validate_cycle_type(0)
+            self.assertEqual(result, 0)
+
+    def test_validate_cycle_interval_returns_none(self):
+        """Test validate_cycle_interval returns None when value is None (covers line 641)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        result = serializer.validate_cycle_interval(None)
+        self.assertIsNone(result)
+
+    def test_validate_cycle_interval_with_value(self):
+        """Test validate_cycle_interval with actual value (covers line 640)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        result = serializer.validate_cycle_interval("2")
+        self.assertEqual(result, 2)
+
+    def test_validate_cycle_point_returns_none(self):
+        """Test validate_cycle_point returns None when value is None (covers line 655)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        result = serializer.validate_cycle_point(None)
+        self.assertIsNone(result)
+
+    def test_validate_cycle_point_with_value(self):
+        """Test validate_cycle_point with actual value (covers lines 647-651)."""
+        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
+
+        serializer = SingleMeetingSerializer()
+        result = serializer.validate_cycle_point("1,3,5")
+        self.assertEqual(result, [1, 3, 5])

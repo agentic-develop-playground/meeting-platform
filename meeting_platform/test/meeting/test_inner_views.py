@@ -333,6 +333,150 @@ class MeetingListViewTest(TestCommonMeeting):
         # Verify response structure
         self.assertEqual(response.status_code, 200)
 
+    @mock.patch('meeting.application.meeting.MeetingApp.get_merged_meeting_list')
+    def test_get_serializer_used(self, mock_get_merged):
+        """Test GET uses MeetingListSerializer for output (covers lines 392-394)."""
+        mock_get_merged.return_value = {
+            'total': 1,
+            'list': [
+                {'id': 1, 'mid': 'mid_1', 'is_cycle': False, 'sub_id': None, 'group_name': 'SIG1', 'community': self.community, 'platform': 'WELINK', 'topic': 'Meeting 1', 'sponsor': 'Alice', 'date': self.today, 'start': '10:00', 'end': '11:00', 'status': 0, 'agenda': None, 'etherpad': None, 'join_url': None, 'cycle_start_date': None, 'cycle_end_date': None, 'cycle_start': None, 'cycle_end': None, 'cycle_type': None, 'cycle_interval': None, 'cycle_point': None},
+            ],
+            'page': 1,
+            'size': 10
+        }
+
+        view = MeetingListView()
+        django_request = self.factory.get(
+            '/inner/meeting/list/',
+            {'community': self.community}
+        )
+        request = Request(django_request)
+
+        response = view.get(request)
+
+        mock_get_merged.assert_called_once()
+        self.assertEqual(response.status_code, 200)
+
+    @mock.patch('meeting.controller.serializers.meeting_serializers.MeetingListQuerySerializer.is_valid')
+    def test_get_validation_error(self, mock_is_valid):
+        """Test GET raises error when validation fails (covers lines 361-366)."""
+        mock_is_valid.side_effect = Exception("Validation error")
+
+        view = MeetingListView()
+        django_request = self.factory.get(
+            '/inner/meeting/list/',
+            {'community': self.community}
+        )
+        request = Request(django_request)
+
+        # Should handle validation error
+        from meeting_platform.utils.ret_api import MyValidationError
+        with self.assertRaises(Exception):
+            view.get(request)
+
+    @mock.patch('meeting.application.meeting.MeetingApp.get_merged_meeting_list')
+    def test_get_with_default_order_by(self, mock_get_merged):
+        """Test GET uses default order_by when not specified (covers line 385)."""
+        mock_get_merged.return_value = {
+            'total': 0,
+            'list': [],
+            'page': 1,
+            'size': 10
+        }
+
+        view = MeetingListView()
+        django_request = self.factory.get(
+            '/inner/meeting/list/',
+            {'community': self.community}
+        )
+        request = Request(django_request)
+
+        response = view.get(request)
+
+        # Verify default order_by is 'date'
+        call_args = mock_get_merged.call_args
+        self.assertEqual(call_args[1]['order_by'], 'date')
+
+    @mock.patch('meeting.application.meeting.MeetingApp.get_merged_meeting_list')
+    def test_get_with_default_page_size(self, mock_get_merged):
+        """Test GET uses default page_size when not specified (covers line 388)."""
+        mock_get_merged.return_value = {
+            'total': 0,
+            'list': [],
+            'page': 1,
+            'size': 10
+        }
+
+        view = MeetingListView()
+        django_request = self.factory.get(
+            '/inner/meeting/list/',
+            {'community': self.community}
+        )
+        request = Request(django_request)
+
+        response = view.get(request)
+
+        # Verify default page_size is 10
+        call_args = mock_get_merged.call_args
+        self.assertEqual(call_args[1]['page_size'], 10)
+
+    @mock.patch('meeting.application.meeting.MeetingApp.get_merged_meeting_list')
+    def test_get_serializer_validation_success(self, mock_get_merged):
+        """Test GET with valid serializer validation success (covers lines 364-366)."""
+        mock_get_merged.return_value = {
+            'total': 1,
+            'list': [
+                {'id': 1, 'mid': 'mid_1', 'is_cycle': False, 'sub_id': None, 'group_name': 'SIG1',
+                 'community': self.community, 'platform': 'WELINK', 'topic': 'Meeting 1',
+                 'sponsor': 'Alice', 'date': self.today, 'start': '10:00', 'end': '11:00',
+                 'status': 0, 'is_delete': 0, 'agenda': None, 'etherpad': None, 'join_url': None,
+                 'cycle_start_date': None, 'cycle_end_date': None, 'cycle_start': None,
+                 'cycle_end': None, 'cycle_type': None, 'cycle_interval': None, 'cycle_point': None},
+            ],
+            'page': 1,
+            'size': 10
+        }
+
+        view = MeetingListView()
+        # Test with all valid query parameters that should pass serializer validation
+        django_request = self.factory.get(
+            '/inner/meeting/list/',
+            {
+                'community': self.community,
+                'date': self.today,
+                'sponsor': 'Alice',
+                'group_name': 'SIG1',
+                'platform': 'WELINK',
+                'topic': 'Meeting',
+                'status': 0,
+                'include_private': 'false',
+                'page': 1,
+                'size': 20,
+                'order_by': 'date',
+                'order_type': 'desc'
+            }
+        )
+        request = Request(django_request)
+
+        response = view.get(request)
+
+        # Verify that serializer validation succeeded and app was called with correct params
+        mock_get_merged.assert_called_once()
+        call_args = mock_get_merged.call_args
+
+        # Verify validated data was passed correctly
+        self.assertEqual(call_args[1]['filters']['date'], self.today)
+        self.assertEqual(call_args[1]['filters']['sponsor'], 'Alice')
+        self.assertEqual(call_args[1]['filters']['group_name'], 'SIG1')
+        self.assertEqual(call_args[1]['filters']['platform'], 'WELINK')
+        self.assertEqual(call_args[1]['filters']['topic'], 'Meeting')
+        self.assertEqual(call_args[1]['filters']['status'], 0)
+        self.assertEqual(call_args[1]['page'], 1)
+        self.assertEqual(call_args[1]['page_size'], 20)
+        self.assertEqual(call_args[1]['order_by'], 'date')
+        self.assertEqual(call_args[1]['order_type'], 'desc')
+        self.assertEqual(response.status_code, 200)
+
 
 class MeetingSponsorViewTest(TestCommonMeeting):
     """Test MeetingSponsorView GET method."""
@@ -424,6 +568,39 @@ class MeetingSponsorViewTest(TestCommonMeeting):
         from meeting_platform.utils.ret_api import MyValidationError
         with self.assertRaises(MyValidationError):
             view.get(request)
+
+    def test_get_sponsors_invalid_community(self):
+        """Test GET raises error when community is not in COMMUNITY_SUPPORT (covers lines 273-274)."""
+        view = MeetingSponsorView()
+        django_request = self.factory.get('/inner/sponsors/', {'community': 'invalid_community'})
+        request = Request(django_request)
+
+        from meeting_platform.utils.ret_api import MyValidationError
+        from django.conf import settings
+        # Mock COMMUNITY_SUPPORT to not include 'invalid_community'
+        with mock.patch.object(settings, 'COMMUNITY_SUPPORT', ['openEuler', 'opengauss']):
+            with self.assertRaises(MyValidationError):
+                view.get(request)
+
+    @mock.patch('meeting.application.meeting.MeetingApp.get_meeting_sponsors')
+    def test_get_sponsors_with_sponsor_keyword(self, mock_get_sponsors):
+        """Test GET with sponsor keyword filter (covers line 276)."""
+        mock_get_sponsors.return_value = ['Alice_Smith']
+
+        view = MeetingSponsorView()
+        django_request = self.factory.get('/inner/sponsors/', {
+            'community': self.community,
+            'sponsor': 'Smith'
+        })
+        request = Request(django_request)
+
+        response = view.get(request)
+
+        mock_get_sponsors.assert_called_once_with(
+            community=self.community,
+            sponsor_keyword='Smith'
+        )
+        self.assertEqual(response.status_code, 200)
 
 
 class MeetingParticipantsViewTest(TestCommonMeeting):

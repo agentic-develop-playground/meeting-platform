@@ -480,7 +480,6 @@ class TestDataBuilder:
 # ============================================================================
 
 import os
-import shutil
 import smtplib
 import tempfile
 from unittest import mock
@@ -494,13 +493,13 @@ class EmailClientUnitTest(BaseTestCommonMeeting):
 
     def setUp(self):
         super().setUp()
-        self.temp_dir = tempfile.mkdtemp()
+        self._temp_dir_obj = tempfile.TemporaryDirectory()
+        self.temp_dir = self._temp_dir_obj.name
         self.addCleanup(self._cleanup_temp_dir)
 
     def _cleanup_temp_dir(self):
         """Clean up temporary directory."""
-        if os.path.exists(self.temp_dir):
-            shutil.rmtree(self.temp_dir)
+        self._temp_dir_obj.cleanup()
 
     def tearDown(self):
         self.clear_meetings()
@@ -598,13 +597,13 @@ class RmDirUnitTest(BaseTestCommonMeeting):
 
     def setUp(self):
         super().setUp()
-        self.temp_base = tempfile.mkdtemp()
+        self._temp_base_obj = tempfile.TemporaryDirectory()
+        self.temp_base = self._temp_base_obj.name
         self.addCleanup(self._cleanup_temp_base)
 
     def _cleanup_temp_base(self):
         """Clean up temporary directory."""
-        if os.path.exists(self.temp_base):
-            shutil.rmtree(self.temp_base)
+        self._temp_base_obj.cleanup()
 
     def tearDown(self):
         self.clear_meetings()

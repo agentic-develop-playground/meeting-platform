@@ -180,6 +180,44 @@ class MeetingAppForceStopTest(TestCommonMeeting):
 
         self.assertEqual(context.exception.detail_code, RetCode.STATUS_PARAMETER_ERROR)
 
+    @mock.patch('meeting.application.meeting.MeetingAdapterImpl.force_end_meeting')
+    def test_force_stop_non_cycle_meeting_calls_clear_status(self, mock_force_end):
+        """Test force_stop_meeting calls clear_status for non-cycle meeting (covers lines 616-617)."""
+        mock_force_end.return_value = True
+        meeting = self._create_non_cycle_meeting(status=BusinessMeetingStatus.ONGOING.value)
+
+        result = self.app.force_stop_meeting(meeting.id, None)
+
+        self.assertTrue(result)
+        mock_force_end.assert_called_once()
+
+        # Verify the meeting status was cleared (clear_status sets status to ENDED)
+        updated_meeting = MeetingDao.get_by_id(meeting.id)
+        self.assertEqual(updated_meeting.status, BusinessMeetingStatus.ENDED.value)
+
+    @mock.patch('meeting.application.meeting.MeetingAdapterImpl.force_end_meeting')
+    def test_force_stop_cycle_meeting_clears_ongoing_sub_meetings(self, mock_force_end):
+        """Test force_stop_meeting for cycle meeting clears all ongoing sub meetings (covers lines 608-613)."""
+        mock_force_end.return_value = True
+        parent = self._create_cycle_meeting()
+        # Create sub meetings with different statuses
+        sub1 = self._create_sub_meeting(parent, status=BusinessMeetingStatus.ONGOING.value)
+        sub2 = self._create_sub_meeting(parent, sub_id=f"sub2_{datetime.datetime.now().timestamp()}",
+                                         status=BusinessMeetingStatus.NOT_STARTED.value)
+
+        result = self.app.force_stop_meeting(parent.id, None)
+
+        self.assertTrue(result)
+        mock_force_end.assert_called_once()
+
+        # Verify ongoing sub meeting status was cleared (set to ENDED)
+        updated_sub1 = MeetingCycleSubMeetingDao.get_by_sub_id(sub1.sub_id)
+        self.assertEqual(updated_sub1.status, BusinessMeetingStatus.ENDED.value)
+
+        # Verify non-ongoing sub meeting status was NOT changed
+        updated_sub2 = MeetingCycleSubMeetingDao.get_by_sub_id(sub2.sub_id)
+        self.assertEqual(updated_sub2.status, BusinessMeetingStatus.NOT_STARTED.value)
+
 
 class MeetingAppSponsorsTest(TestCommonMeeting):
     """Test MeetingApp.get_meeting_sponsors method."""
@@ -416,6 +454,124 @@ class MeetingAppMergedListTest(TestCommonMeeting):
 
         # Should include cycle meeting in results
         self.assertTrue(result['total'] >= 1)
+
+    def test_get_merged_meeting_list_invalid_page(self):
+        """Test get_merged_meeting_list corrects invalid page (covers lines 661-662)."""
+        result = self.app.get_merged_meeting_list(
+            community=self.community,
+            filters={},
+            page=-1,
+            page_size=10
+        )
+
+        # Page should be corrected to 1
+        self.assertEqual(result['page'], 1)
+
+    def test_get_merged_meeting_list_invalid_page_size(self):
+        """Test get_merged_meeting_list corrects invalid page_size (covers lines 663-664)."""
+        result = self.app.get_merged_meeting_list(
+            community=self.community,
+            filters={},
+            page=1,
+            page_size=200  # Exceeds max 100
+        )
+
+        # Page size should be corrected to 10
+        self.assertEqual(result['size'], 10)
+
+    def test_get_merged_meeting_list_page_size_zero(self):
+        """Test get_merged_meeting_list corrects zero page_size."""
+        result = self.app.get_merged_meeting_list(
+            community=self.community,
+            filters={},
+            page=1,
+            page_size=0
+        )
+
+        # Page size should be corrected to 10
+        self.assertEqual(result['size'], 10)
+
+    def test_get_merged_meeting_list_invalid_order_by(self):
+        """Test get_merged_meeting_list corrects invalid order_by (covers lines 666-668)."""
+        result = self.app.get_merged_meeting_list(
+            community=self.community,
+            filters={},
+            order_by='invalid_field',
+            page=1,
+            page_size=10
+        )
+
+        # Should still return results with default order_by
+        self.assertIsNotNone(result['list'])
+
+    def test_get_merged_meeting_list_order_type_desc(self):
+        """Test get_merged_meeting_list with desc order_type (covers lines 684-685)."""
+        self._create_non_cycle_meeting(mid=f"mid1_{datetime.datetime.now().timestamp()}")
+        self._create_non_cycle_meeting(mid=f"mid2_{datetime.datetime.now().timestamp()}")
+
+        result = self.app.get_merged_meeting_list(
+            community=self.community,
+            filters={},
+            order_by='date',
+            order_type='desc',
+            page=1,
+            page_size=10
+        )
+
+        self.assertIsNotNone(result['list'])
+
+    def test_get_merged_meeting_list_order_type_asc(self):
+        """Test get_merged_meeting_list with asc order_type."""
+        self._create_non_cycle_meeting(mid=f"mid1_{datetime.datetime.now().timestamp()}")
+
+        result = self.app.get_merged_meeting_list(
+            community=self.community,
+            filters={},
+            order_by='date',
+            order_type='asc',
+            page=1,
+            page_size=10
+        )
+
+        self.assertIsNotNone(result['list'])
+
+    def test_get_merged_meeting_list_with_cycle_meetings(self):
+        """Test get_merged_meeting_list includes cycle dates in response (covers lines 698-713)."""
+        parent = self._create_cycle_meeting_with_sub()
+
+        result = self.app.get_merged_meeting_list(
+            community=self.community,
+            filters={},
+            page=1,
+            page_size=10
+        )
+
+        # Should include cycle meeting data
+        self.assertTrue(result['total'] >= 1)
+        # Check if cycle dates are included in the list
+        for meeting in result['list']:
+            if meeting.get('is_cycle'):
+                self.assertIsNotNone(meeting.get('cycle_start_date'))
+                self.assertIsNotNone(meeting.get('cycle_end_date'))
+
+    def test_get_merged_meeting_list_cycle_meetings_have_cycle_info(self):
+        """Test cycle meetings have cycle_date info appended."""
+        parent = self._create_cycle_meeting_with_sub()
+
+        result = self.app.get_merged_meeting_list(
+            community=self.community,
+            filters={},
+            page=1,
+            page_size=10
+        )
+
+        # Find cycle meeting in results
+        cycle_meetings = [m for m in result['list'] if m.get('is_cycle')]
+        if cycle_meetings:
+            # Cycle meeting should have cycle info
+            for m in cycle_meetings:
+                self.assertIn('cycle_start_date', m)
+                self.assertIn('cycle_end_date', m)
 
 
 class MeetingAppDeleteTest(TestCommonMeeting):
