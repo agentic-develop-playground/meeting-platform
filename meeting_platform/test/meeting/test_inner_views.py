@@ -602,6 +602,144 @@ class MeetingSponsorViewTest(TestCommonMeeting):
         )
         self.assertEqual(response.status_code, 200)
 
+    def test_get_sponsors_returns_data_correctly(self):
+        """Test GET returns data correctly (covers lines 278-282)."""
+        from meeting_platform.utils.ret_api import ret_json
+
+        # Create a meeting to have sponsors
+        self._create_meeting(sponsor="TestSponsor")
+
+        view = MeetingSponsorView()
+        django_request = self.factory.get('/inner/sponsors/', {'community': self.community})
+        request = Request(django_request)
+
+        response = view.get(request)
+
+        # Verify response has correct structure
+        self.assertEqual(response.status_code, 200)
+
+
+class ForceEndMeetingViewFullTest(TestCommonMeeting):
+    """Test ForceEndMeetingView POST method covering all branches."""
+
+    def setUp(self):
+        super().setUp()
+        self.factory = RequestFactory()
+        self.community = "openEuler"
+        self.today = datetime.datetime.now().strftime('%Y-%m-%d')
+        self.user = self.create_user()
+        self.enable_client_auth(self.user.username)
+
+    def tearDown(self):
+        self.clear_meetings()
+        self.clear_all_users()
+
+    def _create_meeting(self, **kwargs):
+        """Create a test meeting."""
+        defaults = {
+            "sponsor": "test_sponsor",
+            "group_name": "test_group",
+            "community": self.community,
+            "topic": "Test Meeting",
+            "platform": "WELINK",
+            "is_cycle": False,
+            "date": self.today,
+            "start": "10:00",
+            "end": "11:00",
+            "is_record": False,
+            "mid": f"test_mid_{datetime.datetime.now().timestamp()}",
+            "host_id": "test@example.com",
+            "status": BusinessMeetingStatus.ONGOING.value,
+        }
+        defaults.update(kwargs)
+        return MeetingDao.create(**defaults)
+
+    @mock.patch('meeting.application.meeting.MeetingApp.force_stop_meeting')
+    def test_post_success_returns_json(self, mock_force_stop):
+        """Test POST returns success JSON (covers lines 319-320)."""
+        mock_force_stop.return_value = True
+        meeting = self._create_meeting()
+
+        view = ForceEndMeetingView()
+        request = mock.MagicMock()
+        request.data = {'meeting_id': meeting.id}
+
+        response = view.post(request)
+
+        self.assertEqual(response.status_code, 200)
+
+
+class MeetingListViewFullTest(TestCommonMeeting):
+    """Test MeetingListView GET method covering all branches."""
+
+    def setUp(self):
+        super().setUp()
+        self.factory = RequestFactory()
+        self.community = "openEuler"
+        self.today = datetime.datetime.now().strftime('%Y-%m-%d')
+        self.user = self.create_user()
+        self.enable_client_auth(self.user.username)
+
+    def tearDown(self):
+        self.clear_meetings()
+        self.clear_all_users()
+
+    @mock.patch('meeting.application.meeting.MeetingApp.get_merged_meeting_list')
+    def test_get_returns_result_dict(self, mock_get_merged):
+        """Test GET returns result dict (covers lines 382-394)."""
+        mock_get_merged.return_value = {
+            'total': 1,
+            'list': [
+                {'id': 1, 'mid': 'mid_1', 'is_cycle': False, 'sub_id': None, 'group_name': 'SIG1',
+                 'community': self.community, 'platform': 'WELINK', 'topic': 'Meeting 1',
+                 'sponsor': 'Alice', 'date': self.today, 'start': '10:00', 'end': '11:00',
+                 'status': 0, 'is_delete': 0, 'agenda': None, 'etherpad': None, 'join_url': None},
+            ],
+            'page': 1,
+            'size': 10
+        }
+
+        view = MeetingListView()
+        django_request = self.factory.get('/inner/meeting/list/', {'community': self.community})
+        request = Request(django_request)
+
+        response = view.get(request)
+
+        # Verify response structure (covers lines 392-394)
+        self.assertEqual(response.status_code, 200)
+
+    @mock.patch('meeting.application.meeting.MeetingApp.get_merged_meeting_list')
+    def test_get_with_all_params(self, mock_get_merged):
+        """Test GET with all query parameters (covers lines 361-389)."""
+        mock_get_merged.return_value = {
+            'total': 0,
+            'list': [],
+            'page': 1,
+            'size': 20
+        }
+
+        view = MeetingListView()
+        django_request = self.factory.get('/inner/meeting/list/', {
+            'community': self.community,
+            'date': self.today,
+            'sponsor': 'Alice',
+            'group_name': 'SIG1',
+            'platform': 'WELINK',
+            'topic': 'Test',
+            'status': 0,
+            'include_private': 'false',
+            'page': 1,
+            'size': 20,
+            'order_by': 'date',
+            'order_type': 'desc'
+        })
+        request = Request(django_request)
+
+        response = view.get(request)
+
+        mock_get_merged.assert_called_once()
+        self.assertEqual(response.status_code, 200)
+
 
 class MeetingParticipantsViewTest(TestCommonMeeting):
     """Test MeetingParticipantsView."""

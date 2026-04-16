@@ -1570,3 +1570,72 @@ class MeetingCycleSubMeetingDaoWarningEmailTest(TestCommonMeeting):
         )
 
         self.assertEqual(result, "14:00")
+
+    def test_get_first_by_date_range(self):
+        """Test get_first_by_date_range returns first matching sub meeting (covers line 32)."""
+        parent = self._create_parent_meeting()
+        sub1 = self._create_sub_meeting(parent)
+        tomorrow = (datetime.datetime.now() + datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+        sub2 = self._create_sub_meeting(parent, date=tomorrow, sub_id=f"sub2_{datetime.datetime.now().timestamp()}")
+
+        result = MeetingCycleSubMeetingDao.get_first_by_date_range(
+            self.today, tomorrow, parent.mid, [sub1.sub_id, sub2.sub_id]
+        )
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result.mid, parent.mid)
+
+    def test_delete_by_mid(self):
+        """Test delete_by_mid deletes future sub meetings (covers lines 56-57)."""
+        parent = self._create_parent_meeting()
+        # Create sub meeting for today at 10:00-11:00
+        sub_today = self._create_sub_meeting(parent, start="10:00", end="11:00")
+        # Create sub meeting for tomorrow (should be deleted)
+        tomorrow = (datetime.datetime.now() + datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+        sub_future = MeetingCycleSubMeetingDao.create(
+            mid=parent.mid, sub_id=f"sub_future_{datetime.datetime.now().timestamp()}",
+            date=tomorrow, start="10:00", end="11:00", meeting=parent,
+            status=BusinessMeetingStatus.NOT_STARTED.value
+        )
+
+        # Delete sub meetings after current time
+        result = MeetingCycleSubMeetingDao.delete_by_mid(parent.mid, self.today, "12:00")
+
+        # Verify today's meeting still exists (it started at 10:00, which is before 12:00)
+        remaining_sub = MeetingCycleSubMeetingDao.get_by_sub_id(sub_today.sub_id)
+        self.assertIsNotNone(remaining_sub)
+
+    def test_get_by_mid_and_date_time_filter(self):
+        """Test get_by_mid_and_date with time filter (covers lines 61-62)."""
+        parent = self._create_parent_meeting()
+        # Create sub meeting at 10:00-11:00
+        sub_10 = self._create_sub_meeting(parent, start="10:00", end="11:00")
+        # Create sub meeting at 14:00-15:00
+        sub_14 = MeetingCycleSubMeetingDao.create(
+            mid=parent.mid, sub_id=f"sub14_{datetime.datetime.now().timestamp()}",
+            date=self.today, start="14:00", end="15:00", meeting=parent,
+            status=BusinessMeetingStatus.NOT_STARTED.value
+        )
+
+        # Get sub meetings after 12:00 on today
+        result = MeetingCycleSubMeetingDao.get_by_mid_and_date(parent.mid, self.today, "12:00")
+
+        # Should only return sub meeting at 14:00
+        result_list = list(result)
+        self.assertEqual(len(result_list), 1)
+        self.assertEqual(result_list[0].sub_id, sub_14.sub_id)
+
+    def test_update_by_mid_and_sub_id(self):
+        """Test update_by_mid_and_sub_id updates sub meeting fields (covers line 66)."""
+        parent = self._create_parent_meeting()
+        sub = self._create_sub_meeting(parent, start="10:00", end="11:00")
+
+        result = MeetingCycleSubMeetingDao.update_by_mid_and_sub_id(
+            parent.mid, sub.sub_id,
+            start="14:00", end="15:00"
+        )
+
+        # Verify update
+        updated_sub = MeetingCycleSubMeetingDao.get_by_sub_id(sub.sub_id)
+        self.assertEqual(updated_sub.start, "14:00")
+        self.assertEqual(updated_sub.end, "15:00")

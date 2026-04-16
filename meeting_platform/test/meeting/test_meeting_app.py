@@ -679,3 +679,195 @@ class MeetingAppThreadStartTest(TestCommonMeeting):
         # Verify handler was instantiated and send_message was called
         mock_handler_class.assert_called_once()
         mock_instance.send_message.assert_called_once_with(meeting)
+
+
+class MeetingAppGetMeetingSponsorsTest(TestCommonMeeting):
+    """Test MeetingApp.get_meeting_sponsors method (covers lines 572, 582-583)."""
+
+    def setUp(self):
+        super().setUp()
+        self.community = "openEuler"
+        self.today = datetime.datetime.now().strftime('%Y-%m-%d')
+        self.app = MeetingApp()
+
+    def tearDown(self):
+        self.clear_meetings()
+        self.clear_all_users()
+
+    def test_get_meeting_sponsors_returns_list(self):
+        """Test get_meeting_sponsors returns list (covers lines 572, 582-583)."""
+        MeetingDao.create(
+            sponsor="Alice", group_name="group1", community=self.community,
+            topic="Meeting 1", platform="WELINK", is_cycle=False,
+            date=self.today, start="10:00", end="11:00", is_record=False,
+            mid=f"mid1_{datetime.datetime.now().timestamp()}", host_id="h1@test.com"
+        )
+
+        result = self.app.get_meeting_sponsors(self.community)
+
+        self.assertIsInstance(result, list)
+        self.assertIn("Alice", result)
+
+    def test_get_meeting_sponsors_with_keyword_returns_list(self):
+        """Test get_meeting_sponsors with keyword returns list."""
+        MeetingDao.create(
+            sponsor="Alice_Smith", group_name="group1", community=self.community,
+            topic="Meeting 1", platform="WELINK", is_cycle=False,
+            date=self.today, start="10:00", end="11:00", is_record=False,
+            mid=f"mid1_{datetime.datetime.now().timestamp()}", host_id="h1@test.com"
+        )
+        MeetingDao.create(
+            sponsor="Bob_Jones", group_name="group2", community=self.community,
+            topic="Meeting 2", platform="WELINK", is_cycle=False,
+            date=self.today, start="14:00", end="15:00", is_record=False,
+            mid=f"mid2_{datetime.datetime.now().timestamp()}", host_id="h2@test.com"
+        )
+
+        result = self.app.get_meeting_sponsors(self.community, sponsor_keyword="Smith")
+
+        self.assertIsInstance(result, list)
+        self.assertIn("Alice_Smith", result)
+
+
+class MeetingAppForceStopMeetingFullTest(TestCommonMeeting):
+    """Test MeetingApp.force_stop_meeting method covering all branches."""
+
+    def setUp(self):
+        super().setUp()
+        self.community = "openEuler"
+        self.today = datetime.datetime.now().strftime('%Y-%m-%d')
+        self.app = MeetingApp()
+
+    def tearDown(self):
+        self.clear_meetings()
+        self.clear_all_users()
+
+    def _create_non_cycle_meeting(self, **kwargs):
+        """Create a non-cycle test meeting."""
+        defaults = {
+            "sponsor": "test_sponsor",
+            "group_name": "test_group",
+            "community": self.community,
+            "topic": "Test Meeting",
+            "platform": "WELINK",
+            "is_cycle": False,
+            "date": self.today,
+            "start": "10:00",
+            "end": "11:00",
+            "is_record": False,
+            "mid": f"test_mid_{datetime.datetime.now().timestamp()}",
+            "host_id": "test@example.com",
+            "status": BusinessMeetingStatus.ONGOING.value,
+        }
+        defaults.update(kwargs)
+        return MeetingDao.create(**defaults)
+
+    def _create_cycle_meeting(self, **kwargs):
+        """Create a cycle test meeting with sub meetings."""
+        defaults = {
+            "sponsor": "test_sponsor",
+            "group_name": "test_group",
+            "community": self.community,
+            "topic": "Test Cycle Meeting",
+            "platform": "WELINK",
+            "is_cycle": True,
+            "is_record": False,
+            "mid": f"cycle_mid_{datetime.datetime.now().timestamp()}",
+            "host_id": "test@example.com",
+        }
+        defaults.update(kwargs)
+        parent = MeetingDao.create(**defaults)
+
+        MeetingCycleDao.create(
+            mid=parent.mid,
+            start_date=self.today,
+            end_date=(datetime.datetime.now() + datetime.timedelta(days=7)).strftime('%Y-%m-%d'),
+            start="10:00",
+            end="11:00",
+            cycle_type=CycleType.DAY.value,
+            interval=1,
+            meeting=parent
+        )
+        return parent
+
+    def _create_sub_meeting(self, parent_meeting, **kwargs):
+        """Create a sub meeting for cycle meeting."""
+        defaults = {
+            "mid": parent_meeting.mid,
+            "sub_id": f"sub_{datetime.datetime.now().timestamp()}",
+            "date": self.today,
+            "start": "10:00",
+            "end": "11:00",
+            "meeting": parent_meeting,
+            "status": BusinessMeetingStatus.ONGOING.value,
+        }
+        defaults.update(kwargs)
+        return MeetingCycleSubMeetingDao.create(**defaults)
+
+    @mock.patch('meeting.application.meeting.MeetingAdapterImpl.force_end_meeting')
+    def test_force_stop_non_cycle_calls_dao_clear_status(self, mock_force_end):
+        """Test force_stop_meeting calls meeting_dao.clear_status for non-cycle (covers lines 616-617)."""
+        mock_force_end.return_value = True
+        meeting = self._create_non_cycle_meeting(status=BusinessMeetingStatus.ONGOING.value)
+
+        result = self.app.force_stop_meeting(meeting.id, None)
+
+        self.assertTrue(result)
+        # Verify meeting status was cleared
+        updated = MeetingDao.get_by_id(meeting.id)
+        self.assertEqual(updated.status, BusinessMeetingStatus.ENDED.value)
+
+    @mock.patch('meeting.application.meeting.MeetingAdapterImpl.force_end_meeting')
+    def test_force_stop_cycle_clears_ongoing_sub_meetings(self, mock_force_end):
+        """Test force_stop_meeting clears ongoing sub meetings for cycle meeting (covers lines 608-613)."""
+        mock_force_end.return_value = True
+        parent = self._create_cycle_meeting()
+        sub_ongoing = self._create_sub_meeting(parent, status=BusinessMeetingStatus.ONGOING.value)
+        sub_not_started = self._create_sub_meeting(
+            parent, sub_id=f"sub2_{datetime.datetime.now().timestamp()}",
+            status=BusinessMeetingStatus.NOT_STARTED.value
+        )
+
+        result = self.app.force_stop_meeting(parent.id, None)
+
+        self.assertTrue(result)
+        # Verify ongoing sub meeting was cleared
+        updated_ongoing = MeetingCycleSubMeetingDao.get_by_sub_id(sub_ongoing.sub_id)
+        self.assertEqual(updated_ongoing.status, BusinessMeetingStatus.ENDED.value)
+        # Verify non-ongoing sub meeting was NOT changed
+        updated_not_started = MeetingCycleSubMeetingDao.get_by_sub_id(sub_not_started.sub_id)
+        self.assertEqual(updated_not_started.status, BusinessMeetingStatus.NOT_STARTED.value)
+
+    @mock.patch('meeting.application.meeting.MeetingAdapterImpl.force_end_meeting')
+    @mock.patch('meeting.infrastructure.dao.meeting_cycle_sub_dao.MeetingCycleSubMeetingDao.clear_status')
+    def test_force_stop_cycle_with_sub_id_calls_clear_status(self, mock_clear_status, mock_force_end):
+        """Test force_stop_meeting with sub_id calls clear_status (covers line 603)."""
+        mock_force_end.return_value = True
+        parent = self._create_cycle_meeting()
+        sub = self._create_sub_meeting(parent)
+
+        result = self.app.force_stop_meeting(parent.id, sub.sub_id)
+
+        self.assertTrue(result)
+        mock_clear_status.assert_called_once_with(sub.sub_id)
+
+    def test_force_stop_meeting_not_found_raises_error(self):
+        """Test force_stop_meeting raises error for nonexistent meeting (covers lines 586-589)."""
+        with self.assertRaises(MyValidationError) as context:
+            self.app.force_stop_meeting(99999, None)
+
+        self.assertEqual(context.exception.detail_code, RetCode.STATUS_PARAMETER_ERROR)
+
+    @mock.patch('meeting.infrastructure.dao.meeting_cycle_sub_dao.MeetingCycleSubMeetingDao.get_all')
+    def test_force_stop_sub_meeting_not_found_raises_error(self, mock_get_all):
+        """Test force_stop_meeting raises error for nonexistent sub meeting (covers lines 595-597)."""
+        parent = self._create_cycle_meeting()
+
+        mock_queryset = mock.MagicMock()
+        mock_queryset.filter.return_value.first.return_value = None
+        mock_get_all.return_value = mock_queryset
+
+        with self.assertRaises(MyValidationError) as context:
+            self.app.force_stop_meeting(parent.id, "nonexistent_sub_id")
+
+        self.assertEqual(context.exception.detail_code, RetCode.STATUS_PARAMETER_ERROR)

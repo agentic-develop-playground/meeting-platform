@@ -17,6 +17,8 @@ from meeting.controller.serializers.meeting_serializers import (
     MeetingSerializer,
     MeetingListQuerySerializer,
     MeetingListSerializer,
+    SingleMeetingSerializer,
+    CycleSubMeetingSerializer,
     calculate_business_status,
 )
 from meeting.domain.primitive.meeting_status import BusinessMeetingStatus
@@ -850,7 +852,6 @@ class SingleMeetingSerializerTest(TestCommonMeeting):
 
     def test_validate_topic(self):
         """Test validate_topic in SingleMeetingSerializer."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
 
@@ -864,7 +865,6 @@ class SingleMeetingSerializerTest(TestCommonMeeting):
 
     def test_validate_email_list(self):
         """Test validate_email_list in SingleMeetingSerializer."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
 
@@ -875,7 +875,6 @@ class SingleMeetingSerializerTest(TestCommonMeeting):
 
     def test_get_duration_none_start(self):
         """Test get_duration returns None when start is None (covers line 689)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
 
@@ -888,7 +887,6 @@ class SingleMeetingSerializerTest(TestCommonMeeting):
 
     def test_get_duration_time_none_start(self):
         """Test get_duration_time returns None when start is None (covers line 695)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
 
@@ -901,7 +899,6 @@ class SingleMeetingSerializerTest(TestCommonMeeting):
 
     def test_get_status_cancelled_with_true(self):
         """Test get_status returns CANCELLED when is_delete is True (covers lines 703-706)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
 
@@ -914,7 +911,6 @@ class SingleMeetingSerializerTest(TestCommonMeeting):
 
     def test_get_status_cancelled_with_int_1(self):
         """Test get_status returns CANCELLED when is_delete is 1."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
 
@@ -927,7 +923,6 @@ class SingleMeetingSerializerTest(TestCommonMeeting):
 
     def test_get_status_cancelled_with_string_1(self):
         """Test get_status returns CANCELLED when is_delete is '1'."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
 
@@ -937,6 +932,42 @@ class SingleMeetingSerializerTest(TestCommonMeeting):
 
         result = serializer.get_status(obj)
         self.assertEqual(result, BusinessMeetingStatus.CANCELLED.value)
+
+    def test_get_status_returns_obj_status_when_not_deleted(self):
+        """Test get_status returns obj.status when is_delete is False/0 (covers line 706)."""
+
+        serializer = SingleMeetingSerializer()
+
+        obj = mock.MagicMock()
+        obj.is_delete = False
+        obj.status = BusinessMeetingStatus.ONGOING.value
+
+        result = serializer.get_status(obj)
+        self.assertEqual(result, BusinessMeetingStatus.ONGOING.value)
+
+    def test_get_status_returns_obj_status_when_is_delete_0(self):
+        """Test get_status returns obj.status when is_delete is 0."""
+
+        serializer = SingleMeetingSerializer()
+
+        obj = mock.MagicMock()
+        obj.is_delete = 0
+        obj.status = BusinessMeetingStatus.NOT_STARTED.value
+
+        result = serializer.get_status(obj)
+        self.assertEqual(result, BusinessMeetingStatus.NOT_STARTED.value)
+
+    def test_get_status_returns_obj_status_when_is_delete_string_0(self):
+        """Test get_status returns obj.status when is_delete is '0' string."""
+
+        serializer = SingleMeetingSerializer()
+
+        obj = mock.MagicMock()
+        obj.is_delete = '0'
+        obj.status = BusinessMeetingStatus.ENDED.value
+
+        result = serializer.get_status(obj)
+        self.assertEqual(result, BusinessMeetingStatus.ENDED.value)
 
 
 class CycleSubMeetingSerializerTest(TestCommonMeeting):
@@ -953,7 +984,6 @@ class CycleSubMeetingSerializerTest(TestCommonMeeting):
     @mock.patch('meeting.infrastructure.dao.meeting_dao.MeetingDao.get_by_mid')
     def test_get_is_record(self, mock_get_by_mid):
         """Test get_is_record retrieves from parent meeting."""
-        from meeting.controller.serializers.meeting_serializers import CycleSubMeetingSerializer
 
         serializer = CycleSubMeetingSerializer()
 
@@ -970,7 +1000,6 @@ class CycleSubMeetingSerializerTest(TestCommonMeeting):
     @mock.patch('meeting.infrastructure.dao.meeting_dao.MeetingDao.get_by_mid')
     def test_get_sponsor(self, mock_get_by_mid):
         """Test get_sponsor retrieves from parent meeting."""
-        from meeting.controller.serializers.meeting_serializers import CycleSubMeetingSerializer
 
         serializer = CycleSubMeetingSerializer()
 
@@ -987,7 +1016,6 @@ class CycleSubMeetingSerializerTest(TestCommonMeeting):
     @mock.patch('meeting.infrastructure.dao.meeting_dao.MeetingDao.get_by_mid')
     def test_get_is_record_none_when_meeting_not_found(self, mock_get_by_mid):
         """Test get_is_record returns None when parent meeting not found (covers line 765)."""
-        from meeting.controller.serializers.meeting_serializers import CycleSubMeetingSerializer
 
         serializer = CycleSubMeetingSerializer()
 
@@ -1002,7 +1030,6 @@ class CycleSubMeetingSerializerTest(TestCommonMeeting):
     @mock.patch('meeting.infrastructure.dao.meeting_dao.MeetingDao.get_by_mid')
     def test_get_sponsor_none_when_meeting_not_found(self, mock_get_by_mid):
         """Test get_sponsor returns None when parent meeting not found (covers line 775)."""
-        from meeting.controller.serializers.meeting_serializers import CycleSubMeetingSerializer
 
         serializer = CycleSubMeetingSerializer()
 
@@ -1214,7 +1241,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_email_list_returns_none(self):
         """Test validate_email_list returns None when value is None (covers line 543)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         result = serializer.validate_email_list(None)
@@ -1222,7 +1248,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_date_returns_none(self):
         """Test validate_date returns None when value is None (covers line 550)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         result = serializer.validate_date(None)
@@ -1230,7 +1255,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_date_with_value(self):
         """Test validate_date with actual value (covers lines 547-549)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         with mock.patch('meeting_platform.utils.check_params.check_date') as mock_check:
@@ -1240,7 +1264,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_start_returns_none(self):
         """Test validate_start returns None when value is None (covers line 557)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         result = serializer.validate_start(None)
@@ -1248,7 +1271,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_start_with_value(self):
         """Test validate_start with actual value (covers lines 554-556)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         with mock.patch('meeting_platform.utils.check_params.check_time'):
@@ -1257,7 +1279,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_end_returns_none(self):
         """Test validate_end returns None when value is None (covers line 564)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         result = serializer.validate_end(None)
@@ -1265,7 +1286,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_end_with_value(self):
         """Test validate_end with actual value (covers lines 561-563)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         with mock.patch('meeting_platform.utils.check_params.check_time'):
@@ -1274,7 +1294,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_agenda_returns_none(self):
         """Test validate_agenda returns None when value is None (covers line 573)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         result = serializer.validate_agenda(None)
@@ -1282,7 +1301,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_agenda_with_value(self):
         """Test validate_agenda with actual value (covers lines 568-572)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         with mock.patch('meeting_platform.utils.check_params.check_field') as mock_field:
@@ -1295,7 +1313,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_etherpad_returns_none(self):
         """Test validate_etherpad returns None when value is None (covers line 580)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         result = serializer.validate_etherpad(None)
@@ -1303,7 +1320,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_etherpad_with_value(self):
         """Test validate_etherpad with actual value (covers lines 577-579)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         with mock.patch('meeting_platform.utils.check_params.check_link'):
@@ -1312,7 +1328,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_cycle_start_date_returns_none(self):
         """Test validate_cycle_start_date returns None when value is None (covers line 608)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         result = serializer.validate_cycle_start_date(None)
@@ -1320,7 +1335,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_cycle_start_date_with_value(self):
         """Test validate_cycle_start_date with actual value (covers lines 605-607)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         with mock.patch('meeting_platform.utils.check_params.check_date'):
@@ -1329,7 +1343,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_cycle_end_date_returns_none(self):
         """Test validate_cycle_end_date returns None when value is None (covers line 615)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         result = serializer.validate_cycle_end_date(None)
@@ -1337,7 +1350,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_cycle_end_date_with_value(self):
         """Test validate_cycle_end_date with actual value (covers lines 612-614)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         with mock.patch('meeting_platform.utils.check_params.check_date'):
@@ -1346,7 +1358,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_cycle_start_returns_none(self):
         """Test validate_cycle_start returns None when value is None (covers line 622)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         result = serializer.validate_cycle_start(None)
@@ -1354,7 +1365,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_cycle_start_with_value(self):
         """Test validate_cycle_start with actual value (covers lines 619-621)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         with mock.patch('meeting_platform.utils.check_params.check_time'):
@@ -1363,7 +1373,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_cycle_end_returns_none(self):
         """Test validate_cycle_end returns None when value is None (covers line 629)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         result = serializer.validate_cycle_end(None)
@@ -1371,7 +1380,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_cycle_end_with_value(self):
         """Test validate_cycle_end with actual value (covers lines 626-628)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         with mock.patch('meeting_platform.utils.check_params.check_time'):
@@ -1380,7 +1388,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_cycle_type_returns_none(self):
         """Test validate_cycle_type returns None when value is None (covers line 635)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         result = serializer.validate_cycle_type(None)
@@ -1388,7 +1395,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_cycle_type_with_value(self):
         """Test validate_cycle_type with actual value (covers line 634)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         with mock.patch('meeting.domain.primitive.cycle_type.CycleType.check_value') as mock_check:
@@ -1398,7 +1404,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_cycle_interval_returns_none(self):
         """Test validate_cycle_interval returns None when value is None (covers line 641)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         result = serializer.validate_cycle_interval(None)
@@ -1406,7 +1411,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_cycle_interval_with_value(self):
         """Test validate_cycle_interval with actual value (covers line 640)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         result = serializer.validate_cycle_interval("2")
@@ -1414,7 +1418,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_cycle_point_returns_none(self):
         """Test validate_cycle_point returns None when value is None (covers line 655)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         result = serializer.validate_cycle_point(None)
@@ -1422,7 +1425,6 @@ class SingleMeetingSerializerValidateNoneTest(TestCommonMeeting):
 
     def test_validate_cycle_point_with_value(self):
         """Test validate_cycle_point with actual value (covers lines 647-651)."""
-        from meeting.controller.serializers.meeting_serializers import SingleMeetingSerializer
 
         serializer = SingleMeetingSerializer()
         result = serializer.validate_cycle_point("1,3,5")
