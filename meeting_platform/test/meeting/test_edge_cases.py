@@ -216,42 +216,38 @@ class DateEdgeCaseTest(BaseCyclicMeetingTest):
     @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
     def test_monthly_cycle_day_31_april(self, mock_create):
         """Test monthly cycle with day 31 in 30-day month (April)."""
+        # Generate realistic monthly cycle dates using the actual logic
+        # For day 31 monthly cycle, April dates should fall back to day 30
         import calendar
+        from meeting.domain.primitive.cycle_type import CycleType
 
-        # Generate correct sub_info based on cycle rules
-        today = datetime.now().date()
-        start_date = today + timedelta(days=1)
-        end_date = today + timedelta(days=150)
+        # Calculate proper monthly cycle dates for mock
+        test_meeting = {
+            'cycle_start_date': get_future_date(1),
+            'cycle_end_date': get_future_date(150),
+            'cycle_start': '08:00',
+            'cycle_end': '09:00',
+            'cycle_type': CycleType.Month,
+            'cycle_interval': 1,
+            'cycle_point': [31]
+        }
 
-        sub_info = []
-        sub_id = 0
-        current_month = start_date.replace(day=1)
-
-        while current_month <= end_date:
-            year, month = current_month.year, current_month.month
-            last_day = calendar.monthrange(year, month)[1]
-            meeting_day = min(31, last_day)  # Handle months with less than 31 days
-
-            meeting_date = datetime(year, month, meeting_day).date()
-            if meeting_date >= start_date:
-                sub_info.append({
-                    'sub_id': f'SUB_{sub_id}',
-                    'date': str(meeting_date),
-                    'start': '08:00',
-                    'end': '09:00'
-                })
-                sub_id += 1
-
-            if month == 12:
-                current_month = datetime(year + 1, 1, 1).date()
-            else:
-                current_month = datetime(year, month + 1, 1).date()
+        from meeting.infrastructure.code_adapter.core_operators import get_cycle_date_by_policy
+        cycle_dates = get_cycle_date_by_policy(test_meeting)
 
         mock_create.return_value = {
             'mid': 'APRIL_31_TEST',
             'join_url': 'https://test.zoom.us/j/555',
             'host_id': 'host4@test.com',
-            'sub_info': sub_info
+            'sub_info': [
+                {
+                    'sub_id': f'SUB_{i}',
+                    'date': cycle_dates[i]['date'],
+                    'start': cycle_dates[i]['start'],
+                    'end': cycle_dates[i]['end']
+                }
+                for i in range(min(7, len(cycle_dates)))
+            ]
         }
 
         data = create_monthly_cycle_data(days_of_month=[31], duration_days=150)

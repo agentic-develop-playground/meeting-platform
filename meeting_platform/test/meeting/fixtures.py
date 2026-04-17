@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Copyright (c) 2026 Huawei Technologies Co., Ltd.
+# Test fixtures file - contains mock/test credentials only, not real secrets
+# bandit: disable=B105
 """
 Test fixtures and data factories for meeting tests.
 
@@ -276,7 +278,7 @@ def create_test_user_data(username: Optional[str] = None) -> Dict[str, str]:
 
     return {
         "username": username,
-        "password": "testpass123",
+        "password": "testpass123",  # nosec
         "email": f"{username}@test.com"
     }
 

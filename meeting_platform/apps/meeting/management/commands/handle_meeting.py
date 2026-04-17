@@ -109,7 +109,8 @@ class HandleMeeting:
 
 def work_flow(handle_meeting: HandleMeeting):
     try:
-        handle_meeting.force_stop_meeting()
+        if settings.CRONJOB_FORCE_END_MEETING:
+            handle_meeting.force_stop_meeting()
     except Exception as e:
         logger.error("[handle_meeting] force_stop_meeting:{}, traceback:{}".format(str(e), traceback.format_exc()))
     try:

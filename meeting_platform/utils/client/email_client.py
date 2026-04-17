@@ -29,3 +29,4 @@ class EmailClient(object):
         finally:
             if is_close:
                 self.server.quit()
+        return None

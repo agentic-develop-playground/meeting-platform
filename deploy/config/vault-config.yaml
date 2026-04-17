@@ -75,3 +75,10 @@ COMMUNITY_AUDIT:
   TOKEN: ""
 
 HANDLE_MEETING_SCHEDULE_PLAN: "point/windows"
+
+OVER_TIME_OPERATOR_EMAILS:
+  openUBMC:
+    - "xx1@qq.com"
+    - "xx2@qq.com"
+
+OVER_TIME_WARNING_ADVANCE_TIME: 30

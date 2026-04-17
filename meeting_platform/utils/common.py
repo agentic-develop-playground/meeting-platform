@@ -4,7 +4,7 @@
 import secrets
 import shutil
 import string
-import subprocess
+import subprocess  # nosec B404
 import threading
 import time
 import uuid
@@ -36,6 +36,7 @@ def get_temp_dir():
 def rm_dir(dir_path):
     if os.path.exists(dir_path):
         return shutil.rmtree(dir_path)
+    return True
 
 
 def get_video_path(mid, community):
@@ -60,7 +61,7 @@ def make_nonce():
 def execute_cmd3(cmd, timeout=30, err_log=False):
     """execute cmd3"""
     try:
-        p = subprocess.Popen(cmd.split(), stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        p = subprocess.Popen(cmd.split(), stderr=subprocess.PIPE, stdout=subprocess.PIPE)  # nosec B603
         t_wait_seconds = 0
         while True:
             if p.poll() is not None:

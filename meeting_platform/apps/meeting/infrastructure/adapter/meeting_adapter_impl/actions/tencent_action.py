@@ -4,7 +4,7 @@
 from dataclasses import dataclass
 
 from meeting.infrastructure.adapter.meeting_adapter_impl.actions.base_action import CreateAction, \
-    UpdateAction, DeleteAction, GetParticipantsAction, GetVideoAction, ForceEndAction
+    UpdateAction, DeleteAction, GetParticipantsAction, GetVideoAction, ForceEndAction, GetMeetingStatusAction
 
 
 @dataclass
@@ -47,4 +47,9 @@ class TencentGetVideo(GetVideoAction):
 
 @dataclass
 class TencentForceEndAction(ForceEndAction):
+    m_mid: str
+
+
+@dataclass
+class TencentGetMeetingStatusAction(GetMeetingStatusAction):
     m_mid: str

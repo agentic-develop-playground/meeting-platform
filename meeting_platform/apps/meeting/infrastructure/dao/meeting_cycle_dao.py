@@ -36,3 +36,10 @@ class MeetingCycleDao:
     @classmethod
     def get_all(cls):
         return cls._dao.objects.all()
+
+    @classmethod
+    def get_by_mids(cls, mids):
+        """批量获取多个mid的MeetingCycleDate"""
+        if not mids:
+            return []
+        return list(cls._dao.objects.filter(mid__in=mids))

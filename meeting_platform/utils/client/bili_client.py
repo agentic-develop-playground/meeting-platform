@@ -48,8 +48,8 @@ class BiliClient(object):
             res = sync(user.get_videos(pn=pn, ps=10))
             if len(res.get('list').get('vlist')) == 0:
                 break
-            for video in res['list']['vlist']:
-                b_vid = video.get('bvid')
+            for video_temp in res['list']['vlist']:
+                b_vid = video_temp.get('bvid')
                 if not b_vid:
                     continue
                 if b_vid not in all_vid:

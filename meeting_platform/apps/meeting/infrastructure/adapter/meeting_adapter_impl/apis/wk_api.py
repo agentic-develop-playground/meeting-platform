@@ -15,7 +15,7 @@ from meeting_platform.utils.file_stream import download_big_file
 from meeting.domain.repository.meeting_adapter import MeetingAdapter
 from meeting.infrastructure.adapter.meeting_adapter_impl.actions.wk_action import WkCreateAction, WkUpdateAction, \
     WkDeleteAction, WkGetParticipantsAction, WkGetVideo, WkCreateCycleAction, WkUpdateCycleAction, \
-    WkUpdateCycleSubAction, WkDeleteCycleAction, WkDeleteCycleSubAction, WkForceEndAction
+    WkUpdateCycleSubAction, WkDeleteCycleAction, WkDeleteCycleSubAction, WkForceEndAction, WkGetMeetingStatusAction
 from meeting_platform.utils.ret_api import MyValidationError
 from meeting_platform.utils.ret_code import RetCode
 
@@ -26,7 +26,7 @@ logger = logging.getLogger('log')
 class WkApi(MeetingAdapter):
     meeting_type = "welink"  # it is platform
 
-    proxy_token_path = "/v1/usg/acs/auth/proxy"
+    proxy_token_path = "/v1/usg/acs/auth/proxy"  # nosec B105 # API path, not password
     create_path = "/v1/mmc/management/conferences"
     create_cycle_path = "/v1/mmc/management/cycleconferences"
     update_path = "/v1/mmc/management/conferences"
@@ -40,8 +40,9 @@ class WkApi(MeetingAdapter):
     download_url_path = "/v1/mmc/management/record/downloadurls"
     list_recordings_path = "/v1/mmc/management/record/files"
     detail_meeting_path = "/v1/mmc/management/conferences/confDetail"
-    get_conf_token_path = "/v1/mmc/control/conferences/token"
+    get_conf_token_path = "/v1/mmc/control/conferences/token"  # nosec B105 # API path, not password
     force_end_path = "/v1/mmc/control/conferences/stop"
+    get_online_path = "/v1/mmc/management/conferences/online"
 
     def __init__(self, community, platform, host_id):
         platform_info = settings.COMMUNITY_HOST[community][platform]
@@ -571,7 +572,7 @@ class WkApi(MeetingAdapter):
         if not waiting_download_recordings:
             logger.info('[WkApi/_download_video] {}/{} filter to no available recordings'.
                         format(self.community, mid))
-            return
+            return None
         token = waiting_download_recordings[-1]['token']
         download_url = waiting_download_recordings[-1]['url']
         target_filename = get_video_path(mid, self.community)
@@ -586,13 +587,13 @@ class WkApi(MeetingAdapter):
         if not recordings:
             logger.info('[WkApi/get_video] {} filter to no available recordings which mid is：{}'
                         .format(self.community, action.mid))
-            return
+            return None
         video_path = self._download_video(action, recordings)
         logger.info("the current video size {}/{}".format(os.path.getsize(video_path), self.bili_video_min_size))
         if os.path.getsize(video_path) < self.bili_video_min_size:
             logger.info('[WkApi/get_video] {} filter to size lt the min size {} which mid is：{}'
                         .format(self.community, self.bili_video_min_size, action.mid))
-            return
+            return None
         return video_path
 
     def _get_detail_info(self, mid):
@@ -633,6 +634,7 @@ class WkApi(MeetingAdapter):
         if response.status_code != 200:
             logger.error('[WkApi] Fail to get conf token {}, and return data:{}'.format(mid,
                                                                                         response.json()))
+            return None
         logger.info('[WkApi] get detail info:{}'.format(mid))
         return response.json()
 
@@ -642,6 +644,7 @@ class WkApi(MeetingAdapter):
             raise RuntimeError("[WkApi] action must be the subclass of WkForceEndAction")
         config_info = self._get_config_token(action.mid)
         if config_info is None:
+            logger.error('[WkApi] Fail to get config info {} error'.format(action.mid))
             return None
         token = config_info['data']['token']
         headers = {
@@ -657,3 +660,28 @@ class WkApi(MeetingAdapter):
                                                                                            response.json()))
         logger.info('[WkApi] force end meeting meeting {}'.format(action.mid))
         return response.status_code
+
+    def get_meeting_status(self, action):
+        """查询WeLink会议状态"""
+        if not isinstance(action, WkGetMeetingStatusAction):
+            raise RuntimeError("[WkApi] action must be the subclass of WkGetMeetingStatusAction")
+        access_token = self._create_proxy_token()
+        headers = {
+            'X-Access-Token': access_token
+        }
+        params = {
+            "offset": 0,
+            "limit": 100,
+            "queryAll": True
+        }
+        response = requests.get(self._get_url(self.get_online_path), headers=headers, params=params,
+                                timeout=self.time_out)
+        if response.status_code != 200:
+            logger.error('[WkApi] Fail to get online info, and return data:{}'.format(response.json()))
+            return None
+        meetings = response.json().get("data")
+        mids = [meeting["conferenceID"] for meeting in meetings if meeting["conferenceID"] == action.mid]
+        logger.info('[WkApi] get on processing:{}/{}'.format(action.mid, mids))
+        if len(mids):
+            return True
+        return False

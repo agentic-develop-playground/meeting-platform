@@ -4,7 +4,6 @@
 import copy
 import datetime
 import logging
-import secrets
 import time
 from unittest import mock
 from datetime import timedelta
@@ -804,12 +803,13 @@ class DeleteMeetingViewTest(TestCommonMeeting):
         return self.create_meeting(**data)
 
     @mock.patch("meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.delete")
-    def test_cant_delete_in_before_one_hours(self, mock_delete):
+    def test_delete_meeting_within_30_minutes_allowed(self, mock_delete):
+        """Test that deleting a meeting within 30 minutes of start is now allowed (rule changed)."""
         user = self._setup()
         mock_delete.return_value = 200
         data = copy.deepcopy(CreateMeetingViewTest.data)
         cur_date = datetime.datetime.now()
-        # Set meeting to start 25 minutes from now (within the 30-minute restriction)
+        # Set meeting to start 25 minutes from now (within the 30-minute window)
         data["sponsor"] = user.username
         data["date"] = cur_date.date()
         # Calculate a time that's within 30 minutes from now
@@ -823,7 +823,8 @@ class DeleteMeetingViewTest(TestCommonMeeting):
         meeting = self.create_meeting(**data)
         time.sleep(10)
         ret = self.client.delete(self.url.format(meeting.id))
-        self.assertEqual(ret.status_code, status.HTTP_400_BAD_REQUEST)
+        # Rule changed: deletion within 30 minutes is now allowed
+        self.assertEqual(ret.status_code, status.HTTP_200_OK)
         self._teardown()
 
     @mock.patch("meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create")
@@ -1095,3 +1096,110 @@ class GetMeetingPlatformViewTest(TestCommonMeeting):
     def test_get_meeting_date(self):
         ret = self.client.get(self.url.format("openEuler"))
         self.assertEqual(ret.status_code, status.HTTP_200_OK)
+
+
+class MeetingSponsorViewTest(TestCommonMeeting):
+    """Test MeetingSponsorView.get and MeetingApp.get_meeting_sponsors."""
+
+    url = "/inner/v1/meeting/meeting/sponsor/"
+
+    def _setup(self):
+        user = self.create_user()
+        self.enable_client_auth(user.username)
+        return user
+
+    def _create_meeting_direct(self, sponsor, community="openEuler", group_name="test_group", date_offset=0):
+        """Create a meeting directly in database for testing sponsors.
+
+        Args:
+            sponsor: Meeting sponsor name
+            community: Community name
+            group_name: SIG group name
+            date_offset: Days offset from tomorrow (to avoid date conflicts)
+        """
+        data = copy.deepcopy(CreateMeetingViewTest.data)
+        data["sponsor"] = sponsor
+        data["community"] = community
+        data["group_name"] = group_name
+        data["is_cycle"] = False
+        # Use different dates to avoid conflicts
+        data["date"] = str(datetime.datetime.now().date() + timedelta(days=1 + date_offset))
+        available_host_id = MeetingApp()._get_and_check_conflict_meetings_by_date(data)
+        data["host_id"] = available_host_id
+        return self.create_meeting(**data)
+
+    def _teardown(self):
+        self.clear_meetings()
+        self.clear_all_users()
+
+    def test_get_sponsors_basic(self):
+        """Test GET returns basic sponsor list."""
+        self._setup()
+        # Create meetings with different sponsors on different days
+        self._create_meeting_direct(sponsor="Alice", date_offset=0)
+        self._create_meeting_direct(sponsor="Bob", date_offset=1)
+        self._create_meeting_direct(sponsor="Charlie", date_offset=2)
+
+        ret = self.client.get(self.url, {"community": "openEuler"})
+        self.assertEqual(ret.status_code, status.HTTP_200_OK)
+        response_data = ret.json()
+        self.assertIn("data", response_data)
+        # Sponsors should be returned as a list
+        sponsors = response_data["data"]
+        self.assertIn("Alice", sponsors)
+        self.assertIn("Bob", sponsors)
+        self.assertIn("Charlie", sponsors)
+        self._teardown()
+
+    def test_get_sponsors_with_keyword_filter(self):
+        """Test GET with keyword filtering."""
+        self._setup()
+        # Create meetings with sponsors containing different patterns on different days
+        self._create_meeting_direct(sponsor="Alice_Smith", date_offset=0)
+        self._create_meeting_direct(sponsor="Bob_Jones", date_offset=1)
+        self._create_meeting_direct(sponsor="Charlie_Smith", date_offset=2)
+        self._create_meeting_direct(sponsor="David_Williams", date_offset=3)
+
+        ret = self.client.get(self.url, {"community": "openEuler", "sponsor": "Smith"})
+        self.assertEqual(ret.status_code, status.HTTP_200_OK)
+        response_data = ret.json()
+        sponsors = response_data["data"]
+        # Only sponsors containing "Smith" should be returned
+        self.assertIn("Alice_Smith", sponsors)
+        self.assertIn("Charlie_Smith", sponsors)
+        self.assertNotIn("Bob_Jones", sponsors)
+        self.assertNotIn("David_Williams", sponsors)
+        self._teardown()
+
+    def test_get_sponsors_missing_community(self):
+        """Test GET raises error when community is missing."""
+        self._setup()
+        ret = self.client.get(self.url, {})
+        self.assertEqual(ret.status_code, status.HTTP_400_BAD_REQUEST)
+        self._teardown()
+
+    def test_get_sponsors_invalid_community(self):
+        """Test GET raises error when community is invalid."""
+        self._setup()
+        ret = self.client.get(self.url, {"community": "invalid_community"})
+        self.assertEqual(ret.status_code, status.HTTP_400_BAD_REQUEST)
+        self._teardown()
+
+    def test_get_sponsors_deduplication(self):
+        """Test GET returns deduplicated sponsor list."""
+        self._setup()
+        # Create multiple meetings with the same sponsor on different days (to test deduplication)
+        self._create_meeting_direct(sponsor="Alice", group_name="group1", date_offset=0)
+        self._create_meeting_direct(sponsor="Alice", group_name="group2", date_offset=1)
+        self._create_meeting_direct(sponsor="Alice", group_name="group3", date_offset=2)
+        self._create_meeting_direct(sponsor="Bob", group_name="group1", date_offset=3)
+
+        ret = self.client.get(self.url, {"community": "openEuler"})
+        self.assertEqual(ret.status_code, status.HTTP_200_OK)
+        response_data = ret.json()
+        sponsors = response_data["data"]
+        # "Alice" should appear only once (deduplicated)
+        alice_count = sum(1 for s in sponsors if s == "Alice")
+        self.assertEqual(alice_count, 1)
+        self.assertIn("Bob", sponsors)
+        self._teardown()

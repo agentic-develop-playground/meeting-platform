@@ -130,8 +130,8 @@ class UpdateSubMeetingTest(BaseCyclicMeetingTest):
         self.assertIn(response.status_code, [status.HTTP_400_BAD_REQUEST, status.HTTP_404_NOT_FOUND])
 
     @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.update_sub')
-    def test_update_sub_meeting_to_past_date_fails(self, mock_update):
-        """Test updating sub-meeting to a past date fails."""
+    def test_update_sub_meeting_to_past_date(self, mock_update):
+        """Test updating sub-meeting to a past date (rule changed: now allowed)."""
         mock_update.return_value = {'updated': True}
 
         meeting_data, sub_meeting = self._create_cyclic_meeting_with_subs()
@@ -148,7 +148,8 @@ class UpdateSubMeetingTest(BaseCyclicMeetingTest):
         url = self.update_url.format(sub_meeting.sub_id)
         response = self.client.put(url, data=update_data)
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        # Rule changed: updating to past date is now allowed
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.update_sub')
     def test_update_sub_meeting_invalid_time_range(self, mock_update):

@@ -6,6 +6,7 @@ from django.db import models
 
 from meeting.domain.primitive.upload_status import UploadStatus
 from meeting.domain.primitive.cycle_type import CycleType
+from meeting.domain.primitive.meeting_status import BusinessMeetingStatus
 
 
 class User(AbstractUser):
@@ -44,6 +45,9 @@ class Meeting(models.Model):
     sequence = models.IntegerField(verbose_name='修改次数', default=1)
     is_private = models.BooleanField(verbose_name='是否闭门会议', default=False)
     is_delete = models.BooleanField(verbose_name='是否删除', default=False)
+    status = models.SmallIntegerField(verbose_name='会议实时状态', choices=BusinessMeetingStatus.to_tuple(), default=BusinessMeetingStatus.NOT_STARTED.value)
+    status_updated_at = models.DateTimeField(verbose_name='状态更新时间', null=True, blank=True)
+    warning_email_sent = models.BooleanField(verbose_name='是否已发送预警邮件', default=False)
 
     objects = models.Manager()
 
@@ -129,6 +133,9 @@ class MeetingCycleSubMeeting(models.Model):
     start = models.CharField(verbose_name='会议开始时间', max_length=32)
     end = models.CharField(verbose_name='会议结束时间', max_length=32)
     meeting = models.ForeignKey(Meeting, on_delete=models.CASCADE, related_name="cycle_sub_meeting", default=None)
+    status = models.SmallIntegerField(verbose_name='子会议实时状态', choices=BusinessMeetingStatus.to_tuple(), default=BusinessMeetingStatus.NOT_STARTED.value)
+    status_updated_at = models.DateTimeField(verbose_name='状态更新时间', null=True, blank=True)
+    warning_email_sent = models.BooleanField(verbose_name='是否已发送预警邮件', default=False)
 
     objects = models.Manager()
 

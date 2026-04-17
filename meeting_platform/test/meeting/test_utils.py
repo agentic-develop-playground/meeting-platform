@@ -7,10 +7,9 @@ Test utilities including mock classes and assertion helpers.
 This module provides mock objects for external services (Email, Kafka, Platform APIs)
 and utility functions for common test assertions.
 """
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 from typing import Dict, Any, List, Optional
-import datetime
-
+from datetime import datetime, date, timedelta
 
 class MockEmailClient:
     """
@@ -278,7 +277,6 @@ def assert_date_in_range(actual_date: str, start_date: str, end_date: str):
         start_date: Range start (YYYY-MM-DD)
         end_date: Range end (YYYY-MM-DD)
     """
-    from datetime import datetime
 
     actual = datetime.strptime(actual_date, "%Y-%m-%d").date()
     start = datetime.strptime(start_date, "%Y-%m-%d").date()
@@ -337,7 +335,6 @@ def generate_ics_content(meeting_data: Dict[str, Any]) -> str:
     Returns:
         ICS formatted string
     """
-    from datetime import datetime
 
     date_str = meeting_data['date']
     start_time = meeting_data['start']
@@ -391,7 +388,7 @@ def create_mock_meeting_response(
         'join_url': f'https://{platform.lower()}.test.com/j/{mid}',
         'host_id': 'test_host@test.com',
         'topic': 'Test Meeting',
-        'date': str(datetime.date.today()),
+        'date': str(date.today()),
         'start': '10:00',
         'end': '11:00',
         'is_record': True,
@@ -423,7 +420,7 @@ class TestDataBuilder:
             "community": "openEuler",
             "topic": "Test Meeting",
             "platform": "WELINK",
-            "date": str(datetime.date.today() + datetime.timedelta(days=1)),
+            "date": str(date.today() + timedelta(days=1)),
             "start": "10:00",
             "end": "11:00",
             "etherpad": "https://etherpad.test.com/p/test",
@@ -439,7 +436,7 @@ class TestDataBuilder:
 
     def with_date_offset(self, days: int = 1):
         """Set date with offset from today."""
-        self.data['date'] = str(datetime.date.today() + datetime.timedelta(days=days))
+        self.data['date'] = str(date.today() + timedelta(days=days))
         return self
 
     def with_time(self, start: str, end: str):
@@ -470,9 +467,326 @@ class TestDataBuilder:
         self.data['interval'] = interval
         self.data['point'] = point
         self.data['start_date'] = self.data.pop('date')
-        self.data['end_date'] = str(datetime.date.today() + datetime.timedelta(days=end_days))
+        self.data['end_date'] = str(date.today() + timedelta(days=end_days))
         return self
 
     def build(self) -> Dict[str, Any]:
         """Build and return the data."""
         return self.data.copy()
+
+
+# ============================================================================
+# Utility Function Tests
+# ============================================================================
+
+import os
+import smtplib
+import tempfile
+from unittest import mock
+
+from meeting_platform.utils.common import rm_dir, execute_cmd3, mask_email_full, to_anonymous_email_list
+from meeting_platform.test.meeting.test_base import TestCommonMeeting as BaseTestCommonMeeting
+
+
+class EmailClientUnitTest(BaseTestCommonMeeting):
+    """Test EmailClient send_message method."""
+
+    def setUp(self):
+        super().setUp()
+        self._temp_dir_obj = tempfile.TemporaryDirectory()
+        self.temp_dir = self._temp_dir_obj.name
+        self.addCleanup(self._cleanup_temp_dir)
+
+    def _cleanup_temp_dir(self):
+        """Clean up temporary directory."""
+        self._temp_dir_obj.cleanup()
+
+    def tearDown(self):
+        self.clear_meetings()
+        self.clear_all_users()
+
+    def test_send_message_returns_dict_on_success(self):
+        """Test send_message returns dict on successful send."""
+        from meeting_platform.utils.client.email_client import EmailClient
+
+        # Mock SMTP server
+        mock_server = mock.MagicMock(spec=smtplib.SMTP)
+        mock_server.sendmail.return_value = {}  # Empty dict means success
+
+        client = EmailClient.__new__(EmailClient)
+        client.server = mock_server
+
+        # Create a mock message
+        mock_msg = mock.MagicMock()
+        mock_msg.as_string.return_value = "test message"
+
+        result = client.send_message("from@test.com", "to@test.com", mock_msg, is_close=True)
+
+        # Should return the result from sendmail (empty dict = success)
+        self.assertEqual(result, {})
+        mock_server.quit.assert_called_once()
+
+    def test_send_message_returns_none_on_smtp_exception(self):
+        """Test send_message returns None on SMTPException."""
+        from meeting_platform.utils.client.email_client import EmailClient
+
+        # Mock SMTP server that raises exception
+        mock_server = mock.MagicMock(spec=smtplib.SMTP)
+        mock_server.sendmail.side_effect = smtplib.SMTPException("SMTP error")
+
+        client = EmailClient.__new__(EmailClient)
+        client.server = mock_server
+
+        # Create a mock message
+        mock_msg = mock.MagicMock()
+        mock_msg.as_string.return_value = "test message"
+
+        result = client.send_message("from@test.com", "to@test.com", mock_msg, is_close=True)
+
+        # Should return None on exception
+        self.assertIsNone(result)
+        # Should still call quit in finally block
+        mock_server.quit.assert_called_once()
+
+    def test_send_message_keeps_connection_open_when_is_close_false(self):
+        """Test send_message keeps connection open when is_close=False."""
+        from meeting_platform.utils.client.email_client import EmailClient
+
+        # Mock SMTP server
+        mock_server = mock.MagicMock(spec=smtplib.SMTP)
+        mock_server.sendmail.return_value = {}
+
+        client = EmailClient.__new__(EmailClient)
+        client.server = mock_server
+
+        # Create a mock message
+        mock_msg = mock.MagicMock()
+        mock_msg.as_string.return_value = "test message"
+
+        result = client.send_message("from@test.com", "to@test.com", mock_msg, is_close=False)
+
+        self.assertEqual(result, {})
+        # Should NOT call quit when is_close=False
+        mock_server.quit.assert_not_called()
+
+    def test_send_message_returns_none_with_exception_and_is_close_false(self):
+        """Test send_message returns None on exception but keeps connection when is_close=False."""
+        from meeting_platform.utils.client.email_client import EmailClient
+
+        # Mock SMTP server that raises exception
+        mock_server = mock.MagicMock(spec=smtplib.SMTP)
+        mock_server.sendmail.side_effect = smtplib.SMTPException("SMTP error")
+
+        client = EmailClient.__new__(EmailClient)
+        client.server = mock_server
+
+        # Create a mock message
+        mock_msg = mock.MagicMock()
+        mock_msg.as_string.return_value = "test message"
+
+        result = client.send_message("from@test.com", "to@test.com", mock_msg, is_close=False)
+
+        # Should return None on exception
+        self.assertIsNone(result)
+        # Should NOT call quit when is_close=False (exception caught, finally block checks is_close)
+        mock_server.quit.assert_not_called()
+
+
+class RmDirUnitTest(BaseTestCommonMeeting):
+    """Test rm_dir function."""
+
+    def setUp(self):
+        super().setUp()
+        self._temp_base_obj = tempfile.TemporaryDirectory()
+        self.temp_base = self._temp_base_obj.name
+        self.addCleanup(self._cleanup_temp_base)
+
+    def _cleanup_temp_base(self):
+        """Clean up temporary directory."""
+        self._temp_base_obj.cleanup()
+
+    def tearDown(self):
+        self.clear_meetings()
+        self.clear_all_users()
+
+    def test_rm_dir_removes_existing_directory(self):
+        """Test rm_dir removes an existing directory."""
+        test_dir = os.path.join(self.temp_base, "test_dir_to_remove")
+        os.makedirs(test_dir)
+
+        # Directory exists before
+        self.assertTrue(os.path.exists(test_dir))
+
+        result = rm_dir(test_dir)
+
+        # Directory should be removed
+        self.assertFalse(os.path.exists(test_dir))
+
+    def test_rm_dir_returns_true_when_directory_not_exists(self):
+        """Test rm_dir returns True when directory doesn't exist."""
+        nonexistent_dir = os.path.join(self.temp_base, "nonexistent_dir")
+
+        # Directory doesn't exist
+        self.assertFalse(os.path.exists(nonexistent_dir))
+
+        result = rm_dir(nonexistent_dir)
+
+        # Should return True without error
+        self.assertTrue(result)
+
+    def test_rm_dir_removes_directory_with_files(self):
+        """Test rm_dir removes directory containing files."""
+        test_dir = os.path.join(self.temp_base, "test_dir_with_files")
+        os.makedirs(test_dir)
+
+        # Create some files inside
+        for i in range(3):
+            file_path = os.path.join(test_dir, f"file_{i}.txt")
+            with open(file_path, 'w') as f:
+                f.write("test content")
+
+        result = rm_dir(test_dir)
+
+        # Directory and files should be removed
+        self.assertFalse(os.path.exists(test_dir))
+
+    def test_rm_dir_removes_nested_directory(self):
+        """Test rm_dir removes nested directory structure."""
+        test_dir = os.path.join(self.temp_base, "parent_dir")
+        nested_dir = os.path.join(test_dir, "child_dir", "grandchild_dir")
+        os.makedirs(nested_dir)
+
+        # Create file in nested directory
+        file_path = os.path.join(nested_dir, "nested_file.txt")
+        with open(file_path, 'w') as f:
+            f.write("nested content")
+
+        result = rm_dir(test_dir)
+
+        # All nested structure should be removed
+        self.assertFalse(os.path.exists(test_dir))
+
+
+class ExecuteCmd3UnitTest(BaseTestCommonMeeting):
+    """Test execute_cmd3 function."""
+
+    def setUp(self):
+        super().setUp()
+
+    def tearDown(self):
+        self.clear_meetings()
+        self.clear_all_users()
+
+    def test_execute_cmd3_success_returns_zero(self):
+        """Test execute_cmd3 returns 0 on successful command."""
+        # Use a simple command that always succeeds
+        result = execute_cmd3("echo test")
+
+        # Should return tuple of (ret, out, err)
+        self.assertEqual(len(result), 3)
+        ret, out, err = result
+        self.assertEqual(ret, 0)
+
+    def test_execute_cmd3_timeout_returns_negative_one(self):
+        """Test execute_cmd3 returns -1 on timeout."""
+        # Use a command that will timeout (very short timeout)
+        # On Windows, we use a simple ping with count
+        result = execute_cmd3("ping -n 10 127.0.0.1", timeout=0)
+
+        ret, out, err = result
+        self.assertEqual(ret, -1)
+        self.assertIn("exceeded time", err)
+
+    def test_execute_cmd3_invalid_command_returns_negative_one(self):
+        """Test execute_cmd3 returns -1 on invalid command."""
+        result = execute_cmd3("nonexistent_command_xyz")
+
+        ret, out, err = result
+        self.assertEqual(ret, -1)
+        self.assertIn("raise", err)  # Exception message
+
+    def test_execute_cmd3_returns_output(self):
+        """Test execute_cmd3 captures command output."""
+        result = execute_cmd3("echo hello_world")
+
+        ret, out, err = result
+        self.assertEqual(ret, 0)
+        # Output should contain our message
+        self.assertIn(b"hello_world", out)
+
+
+class MaskEmailFullUnitTest(BaseTestCommonMeeting):
+    """Test mask_email_full function."""
+
+    def setUp(self):
+        super().setUp()
+
+    def tearDown(self):
+        self.clear_meetings()
+        self.clear_all_users()
+
+    def test_mask_email_full_standard_email(self):
+        """Test mask_email_full masks standard email correctly."""
+        result = mask_email_full("test@example.com")
+
+        # Username should be masked except first character
+        self.assertIn("t", result)
+        self.assertIn("*", result)
+        self.assertIn("@", result)
+        self.assertIn(".com", result)
+
+    def test_mask_email_full_invalid_format_returns_empty(self):
+        """Test mask_email_full returns empty string for invalid format."""
+        # Email without @
+        result = mask_email_full("invalid_email")
+
+        self.assertEqual(result, "")
+
+    def test_mask_email_full_complex_email(self):
+        """Test mask_email_full handles complex email correctly."""
+        result = mask_email_full("username@domain.co.uk")
+
+        self.assertIn("@", result)
+        # Domain suffix should be preserved
+        self.assertIn("uk", result)
+
+
+class ToAnonymousEmailListUnitTest(BaseTestCommonMeeting):
+    """Test to_anonymous_email_list function."""
+
+    def setUp(self):
+        super().setUp()
+
+    def tearDown(self):
+        self.clear_meetings()
+        self.clear_all_users()
+
+    def test_to_anonymous_email_list_single_email(self):
+        """Test to_anonymous_email_list handles single email."""
+        result = to_anonymous_email_list("test@example.com")
+
+        # Should be masked
+        self.assertIn("*", result)
+        self.assertIn("@", result)
+
+    def test_to_anonymous_email_list_multiple_emails(self):
+        """Test to_anonymous_email_list handles multiple emails."""
+        result = to_anonymous_email_list("user1@test.com;user2@test.com")
+
+        # Should mask both emails and preserve separator
+        self.assertIn(";", result)
+        self.assertIn("*", result)
+
+    def test_to_anonymous_email_list_empty_string(self):
+        """Test to_anonymous_email_list handles empty string."""
+        result = to_anonymous_email_list("")
+
+        # Should return empty string unchanged
+        self.assertEqual(result, "")
+
+    def test_to_anonymous_email_list_none_value(self):
+        """Test to_anonymous_email_list handles None value."""
+        result = to_anonymous_email_list(None)
+
+        # Should return None unchanged
+        self.assertIsNone(result)

@@ -73,15 +73,15 @@ class HandleRecording:
         if not video_path:
             logger.error('[HandleRecording/_get_video_path]  {}/{}: video path could not be empty'.
                          format(self.community, meeting["mid"]))
-            return
+            return None
         if not os.path.exists(video_path):
             logger.error('[HandleRecording/_get_video_path]  {}/{}: video path could not be exist'.
                          format(self.community, meeting["mid"]))
-            return
+            return None
         if os.path.getsize(video_path) == 0:
             logger.error('[HandleRecording/_get_video_path] {}/{}: download but size is 0'.
                          format(self.community, meeting["mid"]))
-            return
+            return None
         return video_path
 
     def _get_video_cover_path(self, video_path, meeting):
@@ -106,7 +106,7 @@ class HandleRecording:
         if not os.path.exists(image_path):
             logger.error('[HandleRecording/_get_video_cover_path] {}/{}: fail to generate cover for meeting video'
                          .format(self.community, meeting["mid"]))
-            return
+            return None
         return image_path
 
     @staticmethod

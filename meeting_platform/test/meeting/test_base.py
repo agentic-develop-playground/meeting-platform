@@ -4,7 +4,7 @@
 import logging
 import uuid
 import base64
-import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 
 from rest_framework.test import APITestCase
@@ -12,7 +12,7 @@ from rest_framework import status
 
 from meeting.models import (
     Meeting, User, MeetingCycleDate, MeetingCycleSubMeeting,
-    MeetingBiliRecords, MeetingObsRecords, MeetingParticipants
+    MeetingBiliRecords, MeetingObsRecords
 )
 
 logger = logging.getLogger("log")
@@ -75,7 +75,13 @@ class CommonClass:
         return self.meeting_dao.objects.filter(sponsor=username).all()
 
     def clear_meetings(self):
-        """Delete all meetings from database."""
+        """Delete all meetings and related records from database."""
+        # Delete related records first (to avoid foreign key constraints)
+        MeetingCycleSubMeeting.objects.all().delete()
+        MeetingCycleDate.objects.all().delete()
+        MeetingBiliRecords.objects.all().delete()
+        MeetingObsRecords.objects.all().delete()
+        # Then delete all meetings
         ret = self.meeting_dao.objects.all().delete()
         logger.info("delete meeting and result is:{}".format(str(ret)))
 
@@ -320,8 +326,6 @@ class BaseCyclicMeetingTest(BaseMeetingTest):
         Returns:
             List of date strings
         """
-        from datetime import datetime, timedelta
-
         start = datetime.strptime(start_date, "%Y-%m-%d").date()
         end = datetime.strptime(end_date, "%Y-%m-%d").date()
 
@@ -352,7 +356,6 @@ class BaseCyclicMeetingTest(BaseMeetingTest):
         Returns:
             List of date strings
         """
-        from datetime import datetime, timedelta
 
         start = datetime.strptime(start_date, "%Y-%m-%d").date()
         end = datetime.strptime(end_date, "%Y-%m-%d").date()
