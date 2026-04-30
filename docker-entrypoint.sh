@@ -8,6 +8,7 @@ if [[ ! $(pwd) == '/home/meetingplatform/meeting-platform' ]]; then
 fi
 
 python3 manage.py migrate
+python3 manage.py collectstatic --noinput
 
 function modify_ip() {
   CURRENT_IP=$(grep -v '^#' /etc/hosts | awk '{print $1}'|grep -E '([0-9]{1,3}\.){3}[0-9]{1,3}'|grep -v '^127\.')

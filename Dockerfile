@@ -24,6 +24,7 @@ RUN wget -q https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/
     rm -f wkhtmltox-0.12.6-1.centos8.x86_64.rpm
 
 # 4.clean
+RUN mkdir /home/meetingplatform/meeting-platform/static && chmod -R 750 /home/meetingplatform/meeting-platform/static
 RUN chmod -R 550 /home/meetingplatform/meeting-platform/
 RUN chmod 550 /home/meetingplatform/meeting-platform/manage.py
 RUN chmod 550 /home/meetingplatform/meeting-platform/docker-entrypoint.sh
@@ -67,6 +68,7 @@ RUN echo "umask 027" >> /home/meetingplatform/.bashrc
 RUN echo 'set +o history' >> /home/meetingplatform/.bashrc
 RUN chmod 640 /home/meetingplatform/.bashrc && chmod 640 /home/meetingplatform/.bash_logout && chmod 640 /home/meetingplatform/.bash_profile
 RUN chown ${user}:${group} /home/meetingplatform/meeting-platform/deploy/production/gunicorn.conf.py
+RUN chown -R ${user}:${group} /home/meetingplatform/meeting-platform/static
 
 # 5.Run server
 WORKDIR /home/meetingplatform/meeting-platform

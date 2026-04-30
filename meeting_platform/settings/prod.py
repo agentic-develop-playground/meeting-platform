@@ -202,9 +202,19 @@ USE_TZ = False
 
 # Static files (CSS, JavaScript, Images)
 # noinspection PyUnresolvedReferences
-STATIC_ROOT = os.path.join(os.path.dirname(BASE_DIR), 'deploy', 'static')
+STATIC_ROOT = os.path.join(os.path.dirname(BASE_DIR), 'static')
 
 STATIC_URL = '/static/'
+
+if DEBUG:
+    STATICFILES_DIRS = [
+        os.path.join(BASE_DIR, 'static'),
+    ]
+
+# Login URL - use Django admin login page
+LOGIN_URL = '/admin/login/'
+
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
 LOGGING = {
     'version': 1,
