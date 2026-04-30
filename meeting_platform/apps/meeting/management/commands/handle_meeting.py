@@ -45,8 +45,8 @@ class HandleMeeting:
     def _get_windows_meeting():
         cur_date = datetime.datetime.now()
         today_date = cur_date.strftime('%Y-%m-%d')
-        start_time = (cur_date - datetime.timedelta(minutes=2 * settings.FORCE_MEETING_END_TIME)).strftime("%H:%M")
-        end_time = (cur_date - datetime.timedelta(minutes=settings.FORCE_MEETING_END_TIME)).strftime("%H:%M")
+        start_time = (cur_date - datetime.timedelta(minutes=settings.FORCE_MEETING_END_TIME)).strftime("%H:%M")
+        end_time = (cur_date - datetime.timedelta(minutes=(settings.FORCE_MEETING_END_TIME - 15))).strftime("%H:%M")
         return today_date, start_time, end_time
 
     @staticmethod
