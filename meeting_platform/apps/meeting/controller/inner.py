@@ -4,8 +4,8 @@
 from copy import deepcopy
 
 from django.conf import settings
-from django.db.models import Q
-from django.forms import model_to_dict
+from django.db.models import Q, Case, When, Value, CharField, OuterRef, Subquery
+from django.db.models.functions import Coalesce
 
 from rest_framework.authentication import BasicAuthentication
 from rest_framework.filters import SearchFilter
@@ -18,8 +18,6 @@ from meeting.controller.serializers.meeting_serializers import MeetingSerializer
     TranslateVideoTextSerializer, CycleSubMeetingSerializer, MeetingGroupNameSerializer, MeetingListSerializer, \
     MeetingListQuerySerializer
 
-from meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl import MeetingAdapterImpl
-
 from meeting_platform.utils.customized.my_pagination import MyPagination
 from meeting_platform.utils.ret_code import RetCode
 from meeting_platform.utils.customized.my_serializers import MySerializerParse, EmptySerializers
@@ -27,6 +25,7 @@ from meeting_platform.utils.ret_api import ret_json, capture_my_validation_excep
 from meeting_platform.utils.customized.my_view import MyRetrieveModelMixin, MyUpdateAPIView, MyListModelMixin
 from meeting_platform.utils.operation_log import OperationLogModule, OperationLogDesc, OperationLogType, \
     logger_wrapper, set_log_thread_local, log_key
+from meeting.models import MeetingCycleSubMeeting
 
 
 class MeetingView(MySerializerParse, MyListModelMixin, ListAPIView, CreateAPIView):
@@ -103,11 +102,55 @@ class MeetingView(MySerializerParse, MyListModelMixin, ListAPIView, CreateAPIVie
             raise MyValidationError(RetCode.STATUS_PARAMETER_ERROR)
         if not order_type:
             order_type = "desc"
-        if order_type == "desc":
-            order_by = "-{}".format(order_by)
+
         # get the meeting id
         distinct_ids = self.queryset.values_list("id", flat=True).distinct()
-        return finally_queryset.filter(id__in=list(distinct_ids)).order_by(order_by, 'start')
+        qs = finally_queryset.filter(id__in=list(distinct_ids))
+
+        # 按 date 排序时，周期会议需用子会议的实际 date/start
+        if order_by == "date":
+            # 获取当前过滤的 date 参数，用于 Subquery 精确匹配
+            filter_date = self.request.query_params.get("date")
+            if filter_date:
+                filter_date = self.serializer_class.check_date(filter_date)
+
+            sub_date = Subquery(
+                MeetingCycleSubMeeting.objects.filter(
+                    meeting_id=OuterRef('pk'),
+                    date=filter_date if filter_date else OuterRef('date')
+                ).values('date')[:1]
+            )
+            sub_start = Subquery(
+                MeetingCycleSubMeeting.objects.filter(
+                    meeting_id=OuterRef('pk'),
+                    date=filter_date if filter_date else OuterRef('date')
+                ).values('start')[:1]
+            )
+            qs = qs.annotate(
+                _sort_date=Case(
+                    When(is_cycle=True, then=sub_date),
+                    default=Value(None, output_field=CharField()),
+                    output_field=CharField()
+                ),
+                _sort_start=Case(
+                    When(is_cycle=True, then=sub_start),
+                    default='start',
+                    output_field=CharField()
+                ),
+                _final_date=Coalesce(
+                    '_sort_date', 'date', output_field=CharField()
+                ),
+            )
+            if order_type == "desc":
+                qs = qs.order_by('-_final_date', '-_sort_start')
+            else:
+                qs = qs.order_by('_final_date', '_sort_start')
+            return qs
+
+        # 非 date 排序保持原逻辑
+        if order_type == "desc":
+            order_by = "-{}".format(order_by)
+        return qs.order_by(order_by, 'start')
 
 
 class SingleMeetingView(MySerializerParse, MyRetrieveModelMixin, MyUpdateAPIView, RetrieveAPIView, DestroyAPIView):
