@@ -12,6 +12,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.forms import model_to_dict
 
+from meeting.application.meeting import MeetingApp
 from meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl import MeetingAdapterImpl
 from meeting.infrastructure.dao import meeting_dao, meeting_participants_dao, meeting_cycle_sub_dao
 
@@ -34,6 +35,7 @@ class MeetingSchedulePlan(Enum):
 
 class HandleMeeting:
     meeting_dao = meeting_dao.MeetingDao
+    _meeting_app = MeetingApp()
     _meeting_participants_dao = meeting_participants_dao.MeetingParticipantsDao
     _meeting_cycle_sub_dao = meeting_cycle_sub_dao.MeetingCycleSubMeetingDao
     meeting_adapter_impl = MeetingAdapterImpl()
@@ -103,8 +105,26 @@ class HandleMeeting:
 
     def force_stop_meeting(self):
         meetings = self._get_cur_day_meeting()
+        now = datetime.datetime.now()
+        today = now.strftime('%Y-%m-%d')
+        yesterday = (now - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+        now_time = now.strftime('%H:%M')
         for meeting in meetings:
-            self.meeting_adapter_impl.force_end_meeting(model_to_dict(meeting))
+            try:
+                if meeting.is_cycle:
+                    # 昨天的子会议：无条件结束
+                    sub = self._meeting_cycle_sub_dao.get_by_mid_date(meeting.mid, yesterday)
+                    if sub:
+                        self._meeting_app.force_stop_meeting(meeting.id, sub.sub_id)
+                    # 今天的子会议：仅当 end <= now_time 时才结束
+                    sub = self._meeting_cycle_sub_dao.get_by_mid_date(meeting.mid, today)
+                    if sub and sub.end <= now_time:
+                        self._meeting_app.force_stop_meeting(meeting.id, sub.sub_id)
+                else:
+                    self._meeting_app.force_stop_meeting(meeting.id, None)
+            except Exception as e:
+                logger.error("[handle_meeting] force_stop_meeting id:{} error:{}, traceback:{}".format(
+                    meeting.id, str(e), traceback.format_exc()))
 
 
 def work_flow(handle_meeting: HandleMeeting):
