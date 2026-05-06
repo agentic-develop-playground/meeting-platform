@@ -24,8 +24,8 @@ RUN wget -q https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/
     rm -f wkhtmltox-0.12.6-1.centos8.x86_64.rpm
 
 # 4.clean
-RUN mkdir /home/meetingplatform/meeting-platform/static && chmod -R 750 /home/meetingplatform/meeting-platform/static
 RUN chmod -R 550 /home/meetingplatform/meeting-platform/
+RUN mkdir -p /home/meetingplatform/meeting-platform/static && chmod -R 750 /home/meetingplatform/meeting-platform/static
 RUN chmod 550 /home/meetingplatform/meeting-platform/manage.py
 RUN chmod 550 /home/meetingplatform/meeting-platform/docker-entrypoint.sh
 RUN chmod 550 /usr/share/fonts/simsun.ttc
