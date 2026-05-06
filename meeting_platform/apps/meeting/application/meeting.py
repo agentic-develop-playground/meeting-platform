@@ -606,10 +606,11 @@ class MeetingApp:
             meeting_adapter.force_end_meeting(meeting_dict)
 
             if meeting.is_cycle:
-                # 周期会议：清除所有正在进行中的子会议的状态
+                # 周期会议：清除正在进行中和超时的子会议状态
                 sub_meetings = MeetingCycleSubMeetingDao.get_by_mid(meeting.mid)
                 for sub in sub_meetings:
-                    if sub.get('status') == BusinessMeetingStatus.ONGOING.value:  # 进行中
+                    status = sub.get('status')
+                    if status in (BusinessMeetingStatus.ONGOING.value, BusinessMeetingStatus.OVERTIME.value):
                         MeetingCycleSubMeetingDao.clear_status(sub.get('sub_id'))
             else:
                 # 非周期会议
