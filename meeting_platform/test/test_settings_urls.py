@@ -8,12 +8,14 @@ Covers:
 - prod.py lines 205, 209-210, 215, 217, 286
 - urls.py line 47
 """
+import importlib
 import os
 import tempfile
 import unittest
 from unittest import mock
 import yaml
 
+from django.conf import settings
 from django.test.utils import override_settings
 
 
@@ -90,7 +92,6 @@ class TestProdSettings(unittest.TestCase):
             with mock.patch.dict(os.environ, env_mock, clear=True):
                 # Import prod.py - this executes all the assignment lines
                 # Lines 205, 215, 217, 286 are executed during import
-                import importlib
                 import meeting_platform.settings.prod as prod_settings
 
                 # Force reimport to get coverage
@@ -171,7 +172,6 @@ class TestProdSettings(unittest.TestCase):
             }
 
             with mock.patch.dict(os.environ, env_mock, clear=True):
-                import importlib
                 import meeting_platform.settings.prod as prod_settings
                 importlib.reload(prod_settings)
 
@@ -194,13 +194,10 @@ class TestUrlsCoverage(unittest.TestCase):
         Note: We use override_settings to ensure DEBUG=True for this test.
         Force a reload of urls.py to capture coverage for the DEBUG block.
         """
-        from django.conf import settings
-
         # Verify our override settings are in effect
         self.assertTrue(settings.DEBUG)
 
         # Force reload urls.py to capture coverage with DEBUG=True
-        import importlib
         import meeting_platform.urls as urls_module
         importlib.reload(urls_module)
 

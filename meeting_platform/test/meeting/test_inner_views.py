@@ -943,8 +943,6 @@ class MeetingViewQuerySetTest(TestCommonMeeting):
 
     def _create_request_with_params(self, params):
         """Create a mock request object with query parameters."""
-        from django.test import RequestFactory
-        from rest_framework.request import Request
         factory = RequestFactory()
         django_request = factory.get('/inner/v1/meeting/meeting/', params)
         return Request(django_request)
