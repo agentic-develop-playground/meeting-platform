@@ -25,6 +25,7 @@ RUN wget -q https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/
 
 # 4.clean
 RUN chmod -R 550 /home/meetingplatform/meeting-platform/
+RUN mkdir -p /home/meetingplatform/meeting-platform/static && chmod -R 750 /home/meetingplatform/meeting-platform/static
 RUN chmod 550 /home/meetingplatform/meeting-platform/manage.py
 RUN chmod 550 /home/meetingplatform/meeting-platform/docker-entrypoint.sh
 RUN chmod 550 /usr/share/fonts/simsun.ttc
@@ -67,6 +68,7 @@ RUN echo "umask 027" >> /home/meetingplatform/.bashrc
 RUN echo 'set +o history' >> /home/meetingplatform/.bashrc
 RUN chmod 640 /home/meetingplatform/.bashrc && chmod 640 /home/meetingplatform/.bash_logout && chmod 640 /home/meetingplatform/.bash_profile
 RUN chown ${user}:${group} /home/meetingplatform/meeting-platform/deploy/production/gunicorn.conf.py
+RUN chown -R ${user}:${group} /home/meetingplatform/meeting-platform/static
 
 # 5.Run server
 WORKDIR /home/meetingplatform/meeting-platform

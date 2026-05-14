@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2026 Huawei Technologies Co., Ltd.
 
+from datetime import datetime, timedelta
 
 from meeting.models import MeetingCycleSubMeeting
 from django.db.models import Q
@@ -17,7 +18,7 @@ class MeetingCycleSubMeetingDao:
 
     @classmethod
     def get_by_mid(cls, mid):
-        return cls._dao.objects.filter(mid=mid).all().values()
+        return cls._dao.objects.filter(mid=mid).order_by('date', 'start').values()
 
     @classmethod
     def get_by_mid_date(cls, mid, date):
@@ -93,7 +94,6 @@ class MeetingCycleSubMeetingDao:
     @classmethod
     def update_status(cls, sub_meeting_id, status):
         """更新子会议状态"""
-        from datetime import datetime
         return cls._dao.objects.filter(id=sub_meeting_id).update(
             status=status,
             status_updated_at=datetime.now()
@@ -102,7 +102,6 @@ class MeetingCycleSubMeetingDao:
     @classmethod
     def clear_status(cls, sub_id):
         """清除子会议状态（会议结束时调用）"""
-        from datetime import datetime
         return cls._dao.objects.filter(sub_id=sub_id).update(
             status=BusinessMeetingStatus.ENDED.value,
             status_updated_at=datetime.now(),
@@ -115,8 +114,6 @@ class MeetingCycleSubMeetingDao:
 
         条件：子会议.date=今天 AND end在当前时间到当前时间+warning_minutes之间 AND status in [1,3] AND warning_email_sent=False
         """
-        from datetime import datetime, timedelta
-
         now = datetime.now()
         current_time = now.strftime('%H:%M')
         warning_time = (now + timedelta(minutes=warning_minutes)).strftime('%H:%M')
@@ -137,8 +134,6 @@ class MeetingCycleSubMeetingDao:
 
         注意：不再限制结束时间窗口，由业务逻辑动态判断预警时机
         """
-        from datetime import datetime
-
         now = datetime.now()
         current_time = now.strftime('%H:%M')
 

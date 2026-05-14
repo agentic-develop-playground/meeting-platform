@@ -189,36 +189,39 @@ class HandleMeetingForceStopTest(TestCommonMeeting):
         self.clear_all_users()
 
     @mock.patch('meeting.management.commands.handle_meeting.HandleMeeting._get_cur_day_meeting')
-    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.force_end_meeting')
+    @mock.patch('meeting.application.meeting.MeetingApp.force_stop_meeting')
     @override_settings(CRONJOB_FORCE_END_MEETING=True, HANDLE_MEETING_SCHEDULE_PLAN='windows')
-    def test_force_stop_meeting_windows_mode(self, mock_force_end, mock_get_meetings):
+    def test_force_stop_meeting_windows_mode(self, mock_force_stop, mock_get_meetings):
         """Test force_stop_meeting in windows mode."""
         handler = HandleMeeting(self.community)
 
-        # Mock meeting data
+        # Mock meeting data - non-cycle meeting
         mock_meeting = mock.MagicMock()
         mock_meeting.id = 1
         mock_meeting.mid = "test_mid"
+        mock_meeting.is_cycle = False
         mock_get_meetings.return_value = [mock_meeting]
 
         handler.force_stop_meeting()
 
-        mock_force_end.assert_called()
+        mock_force_stop.assert_called()
 
     @mock.patch('meeting.management.commands.handle_meeting.HandleMeeting._get_cur_day_meeting')
-    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.force_end_meeting')
+    @mock.patch('meeting.application.meeting.MeetingApp.force_stop_meeting')
     @override_settings(CRONJOB_FORCE_END_MEETING=True, HANDLE_MEETING_SCHEDULE_PLAN='point')
-    def test_force_stop_meeting_point_mode(self, mock_force_end, mock_get_meetings):
+    def test_force_stop_meeting_point_mode(self, mock_force_stop, mock_get_meetings):
         """Test force_stop_meeting in point mode."""
         handler = HandleMeeting(self.community)
 
         mock_meeting = mock.MagicMock()
         mock_meeting.id = 1
+        mock_meeting.mid = "test_mid"
+        mock_meeting.is_cycle = False
         mock_get_meetings.return_value = [mock_meeting]
 
         handler.force_stop_meeting()
 
-        mock_force_end.assert_called()
+        mock_force_stop.assert_called()
 
 
 class HandleMeetingRefreshTest(TestCommonMeeting):
@@ -1331,3 +1334,267 @@ class HandleRecordingCoverContentTest(TestCommonMeeting):
         self.assertIn("<!DOCTYPE html>", content)
         self.assertIn("<html", content)
         self.assertIn("</html>", content)
+
+
+class HandleMeetingForceStopBranchTest(TestCommonMeeting):
+    """Test HandleMeeting.force_stop_meeting cycle/non-cycle branching logic.
+
+    Covers missing lines 118, 122, 124-126 in handle_meeting.py.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.community = "openEuler"
+        self.today = datetime.datetime.now().strftime('%Y-%m-%d')
+        self.yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+
+    def tearDown(self):
+        self.clear_meetings()
+        self.clear_all_users()
+
+    @mock.patch('meeting.management.commands.handle_meeting.HandleMeeting._get_cur_day_meeting')
+    @mock.patch('meeting.application.meeting.MeetingApp.force_stop_meeting')
+    @mock.patch('meeting.infrastructure.dao.meeting_cycle_sub_dao.MeetingCycleSubMeetingDao.get_by_mid_date')
+    def test_force_stop_cycle_yesterday_sub_exists(self, mock_get_sub, mock_force_stop, mock_get_meetings):
+        """Test force_stop_meeting ends yesterday's sub-meeting for cycle meeting.
+
+        Covers line 118 - yesterday sub-meeting exists and is force stopped.
+        """
+        handler = HandleMeeting(self.community)
+
+        # Mock cycle meeting
+        mock_meeting = mock.MagicMock()
+        mock_meeting.id = 1
+        mock_meeting.mid = "cycle_mid"
+        mock_meeting.is_cycle = True
+        mock_get_meetings.return_value = [mock_meeting]
+
+        # Mock yesterday's sub-meeting exists
+        mock_sub_yesterday = mock.MagicMock()
+        mock_sub_yesterday.sub_id = "sub_yesterday"
+        mock_get_sub.return_value = mock_sub_yesterday
+
+        handler.force_stop_meeting()
+
+        # Should call force_stop_meeting with yesterday's sub_id
+        mock_force_stop.assert_called_with(1, "sub_yesterday")
+
+    @mock.patch('meeting.management.commands.handle_meeting.HandleMeeting._get_cur_day_meeting')
+    @mock.patch('meeting.application.meeting.MeetingApp.force_stop_meeting')
+    @mock.patch('meeting.infrastructure.dao.meeting_cycle_sub_dao.MeetingCycleSubMeetingDao.get_by_mid_date')
+    def test_force_stop_cycle_today_sub_past_end_time(self, mock_get_sub, mock_force_stop, mock_get_meetings):
+        """Test force_stop_meeting ends today's sub-meeting when end <= now_time.
+
+        Covers line 122 - today's sub-meeting with end time <= current time.
+        """
+        handler = HandleMeeting(self.community)
+
+        # Mock cycle meeting
+        mock_meeting = mock.MagicMock()
+        mock_meeting.id = 1
+        mock_meeting.mid = "cycle_mid"
+        mock_meeting.is_cycle = True
+        mock_get_meetings.return_value = [mock_meeting]
+
+        # Mock yesterday's sub-meeting exists
+        mock_sub_yesterday = mock.MagicMock()
+        mock_sub_yesterday.sub_id = "sub_yesterday"
+
+        # Mock today's sub-meeting with end time <= current time
+        now = datetime.datetime.now()
+        past_end_time = (now - datetime.timedelta(hours=1)).strftime('%H:%M')
+        mock_sub_today = mock.MagicMock()
+        mock_sub_today.sub_id = "sub_today"
+        mock_sub_today.end = past_end_time
+
+        # Return yesterday's sub first, then today's sub
+        mock_get_sub.side_effect = [mock_sub_yesterday, mock_sub_today]
+
+        handler.force_stop_meeting()
+
+        # Should call force_stop_meeting for both yesterday's and today's sub
+        self.assertEqual(mock_force_stop.call_count, 2)
+
+    @mock.patch('meeting.management.commands.handle_meeting.HandleMeeting._get_cur_day_meeting')
+    @mock.patch('meeting.application.meeting.MeetingApp.force_stop_meeting')
+    def test_force_stop_non_cycle_meeting(self, mock_force_stop, mock_get_meetings):
+        """Test force_stop_meeting ends non-cycle meeting.
+
+        Covers lines 124-125 - non-cycle meeting force stop with sub_id=None.
+        """
+        handler = HandleMeeting(self.community)
+
+        # Mock non-cycle meeting
+        mock_meeting = mock.MagicMock()
+        mock_meeting.id = 1
+        mock_meeting.mid = "non_cycle_mid"
+        mock_meeting.is_cycle = False
+        mock_get_meetings.return_value = [mock_meeting]
+
+        handler.force_stop_meeting()
+
+        # Should call force_stop_meeting with None sub_id for non-cycle meeting
+        mock_force_stop.assert_called_once_with(1, None)
+
+    @mock.patch('meeting.management.commands.handle_meeting.HandleMeeting._get_cur_day_meeting')
+    @mock.patch('meeting.application.meeting.MeetingApp.force_stop_meeting')
+    def test_force_stop_meeting_exception_handling(self, mock_force_stop, mock_get_meetings):
+        """Test force_stop_meeting handles exceptions and continues processing.
+
+        Covers line 126 - exception handling with logger.error.
+        """
+        handler = HandleMeeting(self.community)
+
+        # Mock two meetings: first raises exception, second succeeds
+        mock_meeting1 = mock.MagicMock()
+        mock_meeting1.id = 1
+        mock_meeting1.is_cycle = False
+        mock_meeting1.mid = "mid1"
+
+        mock_meeting2 = mock.MagicMock()
+        mock_meeting2.id = 2
+        mock_meeting2.is_cycle = False
+        mock_meeting2.mid = "mid2"
+
+        mock_get_meetings.return_value = [mock_meeting1, mock_meeting2]
+
+        # First meeting raises exception
+        mock_force_stop.side_effect = [
+            Exception("Test error"),
+            None  # Second meeting succeeds
+        ]
+
+        # Should not raise exception, should log error and continue
+        handler.force_stop_meeting()
+
+        # Should have called force_stop for both meetings despite exception
+        self.assertEqual(mock_force_stop.call_count, 2)
+
+
+class HandleRecordingNoSubMeetingTest(TestCommonMeeting):
+    """Test HandleRecording upload methods when cycle meeting has no sub-meeting.
+
+    Covers missing lines 147-148, 150, 201-202, 204 in handle_recordings.py.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.community = "openEuler"
+        self.today = datetime.datetime.now().strftime('%Y-%m-%d')
+
+    def tearDown(self):
+        self.clear_meetings()
+        self.clear_all_users()
+
+    @mock.patch('meeting.management.commands.handle_recordings.model_to_dict')
+    @mock.patch('meeting.management.commands.handle_recordings.BiliAdapterImpl')
+    @mock.patch('meeting.management.commands.handle_recordings.TranslateAdapterImpl')
+    @mock.patch('meeting.infrastructure.dao.meeting_records_obs_dao.MeetingRecordsObsDao.get_records_by_status')
+    @mock.patch('meeting.infrastructure.dao.meeting_dao.MeetingDao.get_meeting_by_obs_records')
+    @mock.patch('meeting.management.commands.handle_recordings.HandleRecording._get_video_path')
+    @mock.patch('meeting.infrastructure.dao.meeting_cycle_sub_dao.MeetingCycleSubMeetingDao.get_first_by_date_range')
+    def test_upload_obs_cycle_meeting_no_sub_meeting(self, mock_get_sub, mock_video_path, mock_get_meetings, mock_get_records, mock_translate, mock_bili, mock_model_to_dict):
+        """Test upload_obs skips cycle meeting when no sub-meeting in date range.
+
+        Covers lines 147-148, 150 - cycle meeting without sub-meeting handling.
+        """
+        mock_translate.return_value = mock.MagicMock()
+        mock_bili.return_value = mock.MagicMock()
+        handler = HandleRecording(self.community)
+
+        # Mock record
+        mock_record = mock.MagicMock()
+        mock_record.meeting_id = 1
+        mock_get_records.return_value = [mock_record]
+
+        # Mock cycle meeting object with all required attributes
+        mock_meeting_obj = mock.MagicMock()
+        mock_meeting_obj.mid = "cycle_mid"
+        mock_meeting_obj.id = 1
+        mock_meeting_obj.group_name = "test_group"
+        mock_meeting_obj.topic = "Cycle Meeting"
+        mock_get_meetings.return_value = [mock_meeting_obj]
+
+        # Mock model_to_dict to return cycle meeting dict
+        mock_model_to_dict.return_value = {
+            'id': 1,
+            'mid': 'cycle_mid',
+            'is_cycle': True,
+            'is_private': False,
+            'topic': 'Cycle Meeting',
+            'group_name': 'test_group',
+            'community': self.community,
+            'platform': 'WELINK',
+            'date': self.today,
+            'start': '10:00',
+            'end': '11:00',
+        }
+
+        # Mock no sub-meeting in date range - returns None
+        mock_get_sub.return_value = None
+
+        result = handler.upload_obs()
+
+        # Should return empty dict because cycle meeting has no sub-meeting
+        self.assertEqual(result, {})
+        # get_first_by_date_range should be called
+        mock_get_sub.assert_called()
+
+    @mock.patch('meeting.management.commands.handle_recordings.model_to_dict')
+    @mock.patch('meeting.management.commands.handle_recordings.BiliAdapterImpl')
+    @mock.patch('meeting.management.commands.handle_recordings.TranslateAdapterImpl')
+    @mock.patch('meeting.infrastructure.dao.meeting_records_bili_dao.MeetingRecordsBiliDao.get_records_by_status')
+    @mock.patch('meeting.infrastructure.dao.meeting_dao.MeetingDao.get_meeting_by_bili_records')
+    @mock.patch('meeting.management.commands.handle_recordings.HandleRecording._get_video_path')
+    @mock.patch('meeting.management.commands.handle_recordings.HandleRecording._get_video_cover_path')
+    @mock.patch('meeting.infrastructure.dao.meeting_cycle_sub_dao.MeetingCycleSubMeetingDao.get_first_by_date_range')
+    def test_upload_bili_cycle_meeting_no_sub_meeting(self, mock_get_sub, mock_cover_path, mock_video_path, mock_get_meetings, mock_get_records, mock_translate, mock_bili, mock_model_to_dict):
+        """Test upload_bili skips cycle meeting when no sub-meeting in date range.
+
+        Covers lines 201-202, 204 - cycle meeting without sub-meeting handling.
+        """
+        mock_translate.return_value = mock.MagicMock()
+        mock_bili.return_value = mock.MagicMock()
+        handler = HandleRecording(self.community)
+
+        # Mock record
+        mock_record = mock.MagicMock()
+        mock_record.meeting_id = 1
+        mock_get_records.return_value = [mock_record]
+
+        # Mock cycle meeting object
+        mock_meeting_obj = mock.MagicMock()
+        mock_meeting_obj.mid = "cycle_mid"
+        mock_meeting_obj.id = 1
+        mock_meeting_obj.group_name = "test_group"
+        mock_meeting_obj.topic = "Cycle Meeting"
+        mock_get_meetings.return_value = [mock_meeting_obj]
+
+        # Mock model_to_dict to return cycle meeting dict with is_cycle=True
+        mock_model_to_dict.return_value = {
+            'id': 1,
+            'mid': 'cycle_mid',
+            'is_cycle': True,
+            'is_private': False,
+            'topic': 'Cycle Meeting',
+            'group_name': 'test_group',
+            'community': self.community,
+            'platform': 'WELINK',
+            'date': self.today,
+            'start': '10:00',
+            'end': '11:00',
+        }
+
+        # Mock no sub-meeting in date range - returns None
+        mock_get_sub.return_value = None
+
+        # Video paths exist
+        mock_video_path.return_value = "/path/to/video.mp4"
+        mock_cover_path.return_value = "/path/to/cover.png"
+
+        # Call upload_bili with cache_path containing the meeting
+        cache_path = {"cycle_mid": "/path/to/video.mp4"}
+        handler.upload_bili(cache_path)
+
+        # get_first_by_date_range should be called
+        mock_get_sub.assert_called()

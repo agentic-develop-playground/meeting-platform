@@ -157,7 +157,7 @@ class ForceEndMeetingViewTest(TestCommonMeeting):
 
     @mock.patch("meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.force_end_meeting")
     def test_force_end_cycle_meeting_clears_all_ongoing_subs(self, mock_force_end):
-        """Test force end cycle meeting clears all ongoing sub-meetings.
+        """Test force end cycle meeting clears ongoing and overtime sub-meetings.
 
         Covers:
         - ForceEndMeetingView.post lines 314-320
@@ -175,10 +175,10 @@ class ForceEndMeetingViewTest(TestCommonMeeting):
         )
         sub2 = self._create_sub_meeting(
             parent,
-            status=BusinessMeetingStatus.ONGOING.value,
+            status=BusinessMeetingStatus.OVERTIME.value,
             sub_id=f"sub2_{datetime.datetime.now().timestamp()}"
         )
-        # Non-ongoing sub meeting should not be cleared
+        # Non-active sub meeting should not be cleared
         sub3 = self._create_sub_meeting(
             parent,
             status=BusinessMeetingStatus.NOT_STARTED.value,
@@ -189,13 +189,13 @@ class ForceEndMeetingViewTest(TestCommonMeeting):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        # Verify all ongoing sub meetings were cleared to ENDED
+        # Verify active sub meetings were cleared to ENDED
         sub1.refresh_from_db()
         sub2.refresh_from_db()
         sub3.refresh_from_db()
         self.assertEqual(sub1.status, BusinessMeetingStatus.ENDED.value)
         self.assertEqual(sub2.status, BusinessMeetingStatus.ENDED.value)
-        # Non-ongoing sub meeting should remain unchanged
+        # Non-active sub meeting should remain unchanged
         self.assertEqual(sub3.status, BusinessMeetingStatus.NOT_STARTED.value)
 
     def test_force_end_missing_meeting_id(self):

@@ -144,6 +144,10 @@ class HandleRecording:
                                                                                          UploadStatus.INIT.value)
                     meeting_sub_info = self.meeting_cycle_sub_dao.get_first_by_date_range(
                         start_date, end_date, meeting["mid"], sub_ids)
+                    if meeting_sub_info is None:
+                        logger.info("[HandleRecording/upload_obs] meeting({}) is cycle, but no sub meeting, and skip".
+                                    format(meeting["mid"]))
+                        continue
                     meeting["date"] = meeting_sub_info.date
                     meeting["start"] = meeting_sub_info.start
                     meeting["end"] = meeting_sub_info.end
@@ -194,6 +198,10 @@ class HandleRecording:
                                                                                          UploadStatus.INIT.value)
                     meeting_sub_info = self.meeting_cycle_sub_dao.get_first_by_date_range(
                         start_date, end_date, meeting["mid"], sub_ids)
+                    if meeting_sub_info is None:
+                        logger.info("[HandleRecording/upload_obs] meeting({}) is cycle, but no sub meeting, and skip".
+                                    format(meeting["mid"]))
+                        continue
                     meeting["date"] = meeting_sub_info.date
                     meeting["start"] = meeting_sub_info.start
                     meeting["end"] = meeting_sub_info.end

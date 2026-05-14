@@ -202,9 +202,19 @@ USE_TZ = False
 
 # Static files (CSS, JavaScript, Images)
 # noinspection PyUnresolvedReferences
-STATIC_ROOT = os.path.join(os.path.dirname(BASE_DIR), 'deploy', 'static')
+STATIC_ROOT = os.path.join(os.path.dirname(BASE_DIR), 'static')
 
 STATIC_URL = '/static/'
+
+if DEBUG:
+    STATICFILES_DIRS = [
+        os.path.join(BASE_DIR, 'static'),
+    ]
+
+# Login URL - use Django admin login page
+LOGIN_URL = '/admin/login/'
+
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
 LOGGING = {
     'version': 1,
@@ -273,7 +283,7 @@ BILI_UPLOAD_DATE = 7
 QUERY_MEETING_DATE = 7
 
 # 当HANDLE_MEETING_SCHEDULE_PLAN为windows时，每隔FORCE_MEETING_END_TIME指定的分钟强制结束会议的查询时间，单位：分钟
-FORCE_MEETING_END_TIME = 15
+FORCE_MEETING_END_TIME = VAULT_CONF.get("FORCE_MEETING_END_TIME", 30)
 
 # 当HANDLE_MEETING_SCHEDULE_PLAN为point时，强制结束会议的查询时间, 单位：小时
 FORCE_MEETING_END_POINT = 24
