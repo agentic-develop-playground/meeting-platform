@@ -22,9 +22,10 @@ from meeting.infrastructure.dao.meeting_cycle_dao import MeetingCycleDao
 from meeting.infrastructure.dao.meeting_cycle_sub_dao import MeetingCycleSubMeetingDao
 from meeting.domain.primitive.meeting_status import BusinessMeetingStatus
 from meeting.domain.primitive.cycle_type import CycleType
-from meeting.controller.inner import ForceEndMeetingView, MeetingListView, MeetingSponsorView
+from meeting.controller.inner import ForceEndMeetingView, MeetingListView, MeetingSponsorView, MeetingView
 from meeting_platform.test.meeting.test_base import TestCommonMeeting
 from meeting_platform.utils.ret_code import RetCode
+from meeting.models import MeetingCycleSubMeeting, MeetingCycleDate
 
 
 class ForceEndMeetingViewTest(TestCommonMeeting):
@@ -856,4 +857,217 @@ class MeetingDateViewTest(TestCommonMeeting):
         })
 
         mock_app_class.get_meeting_date.assert_called_once()
+        self.assertEqual(response.status_code, 200)
+
+
+class MeetingViewQuerySetTest(TestCommonMeeting):
+    """Test MeetingView.get_queryset date sorting logic for cycle meetings.
+
+    Covers missing lines 108, 111, 113-115, 117, 123, 129, 144-145, 147-148, 151-153.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.community = "openEuler"
+        self.today = datetime.datetime.now().strftime('%Y-%m-%d')
+        self.yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+        self.tomorrow = (datetime.datetime.now() + datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+        self.user = self.create_user()
+        self.enable_client_auth(self.user.username)
+
+    def tearDown(self):
+        self.clear_meetings()
+        self.clear_all_users()
+
+    def _create_meeting(self, **kwargs):
+        """Create a non-cycle meeting."""
+        defaults = {
+            "sponsor": "test_sponsor",
+            "group_name": "test_group",
+            "community": self.community,
+            "topic": "Test Meeting",
+            "platform": "WELINK",
+            "is_cycle": False,
+            "date": self.today,
+            "start": "10:00",
+            "end": "11:00",
+            "is_record": False,
+            "mid": f"test_mid_{datetime.datetime.now().timestamp()}",
+            "host_id": "test@example.com",
+            "status": BusinessMeetingStatus.NOT_STARTED.value,
+        }
+        defaults.update(kwargs)
+        return MeetingDao.create(**defaults)
+
+    def _create_cycle_meeting_with_sub(self, date, start="10:00", end="11:00", mid_prefix="cycle"):
+        """Create a cycle meeting with a sub-meeting on specific date."""
+        parent = MeetingDao.create(
+            sponsor="cycle_sponsor",
+            group_name="cycle_group",
+            community=self.community,
+            topic="Cycle Meeting",
+            platform="WELINK",
+            is_cycle=True,
+            is_record=False,
+            mid=f"{mid_prefix}_mid_{datetime.datetime.now().timestamp()}",
+            host_id="cycle@example.com",
+            status=BusinessMeetingStatus.NOT_STARTED.value,
+            date=self.today,
+            start="09:00",
+            end="12:00",
+        )
+
+        # Create cycle date record
+        MeetingCycleDate.objects.create(
+            mid=parent.mid,
+            start_date=self.yesterday,
+            end_date=self.tomorrow,
+            start=start,
+            end=end,
+            cycle_type=CycleType.DAY.value,
+            interval=1,
+            meeting=parent
+        )
+
+        # Create sub-meeting on specific date
+        sub = MeetingCycleSubMeeting.objects.create(
+            mid=parent.mid,
+            sub_id=f"sub_{datetime.datetime.now().timestamp()}",
+            date=date,
+            start=start,
+            end=end,
+            meeting=parent,
+            status=BusinessMeetingStatus.NOT_STARTED.value
+        )
+        return parent, sub
+
+    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
+    def test_get_queryset_date_order_by_cycle_meeting(self, mock_create):
+        """Test get_queryset with order_by=date for cycle meetings triggers subquery logic.
+
+        Covers lines 108, 111, 117, 123, 129.
+        """
+        mock_create.return_value = {"mid": "test_mid", "join_url": "url", "host_id": "host"}
+
+        # Create a cycle meeting with sub-meeting on different date
+        parent, sub = self._create_cycle_meeting_with_sub(self.tomorrow, "14:00", "15:00")
+
+        # Create a non-cycle meeting for comparison
+        non_cycle = self._create_meeting(date=self.today, start="10:00", end="11:00")
+
+        # Request with order_by=date - triggers cycle meeting subquery logic
+        response = self.client.get('/inner/v1/meeting/meeting/', {
+            'community': self.community,
+            'order_by': 'date',
+            'order_type': 'desc'
+        })
+
+        self.assertEqual(response.status_code, 200)
+        # Verify response contains meetings
+        data = response.data if hasattr(response, 'data') else response.json()
+        self.assertIn('data', data)
+
+    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
+    def test_get_queryset_date_order_by_with_filter_date(self, mock_create):
+        """Test get_queryset with order_by=date and date filter parameter.
+
+        Covers lines 113-115 - filter_date parameter is used in subquery.
+        """
+        mock_create.return_value = {"mid": "test_mid", "join_url": "url", "host_id": "host"}
+
+        # Create cycle meeting with sub-meeting on specific date
+        parent, sub = self._create_cycle_meeting_with_sub(self.tomorrow)
+
+        # Request with order_by=date AND date filter parameter
+        # This triggers the filter_date logic in lines 113-115
+        response = self.client.get('/inner/v1/meeting/meeting/', {
+            'community': self.community,
+            'order_by': 'date',
+            'order_type': 'desc',
+            'date': self.tomorrow  # Filter by date - triggers filter_date branch
+        })
+
+        self.assertEqual(response.status_code, 200)
+
+    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
+    def test_get_queryset_date_desc_order(self, mock_create):
+        """Test get_queryset with order_by=date and order_type=desc.
+
+        Covers lines 144-145 - descending order for date sorting.
+        """
+        mock_create.return_value = {"mid": "test_mid", "join_url": "url", "host_id": "host"}
+
+        # Create multiple meetings with different dates
+        self._create_cycle_meeting_with_sub(self.yesterday, "09:00", "10:00", mid_prefix="cycle1")
+        self._create_cycle_meeting_with_sub(self.tomorrow, "14:00", "15:00", mid_prefix="cycle2")
+        self._create_meeting(date=self.today, start="10:00", end="11:00")
+
+        response = self.client.get('/inner/v1/meeting/meeting/', {
+            'community': self.community,
+            'order_by': 'date',
+            'order_type': 'desc'
+        })
+
+        self.assertEqual(response.status_code, 200)
+        data = response.data if hasattr(response, 'data') else response.json()
+        self.assertIn('data', data)
+
+    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
+    def test_get_queryset_date_asc_order(self, mock_create):
+        """Test get_queryset with order_by=date and order_type=asc.
+
+        Covers lines 147-148 - ascending order for date sorting.
+        """
+        mock_create.return_value = {"mid": "test_mid", "join_url": "url", "host_id": "host"}
+
+        # Create multiple meetings
+        self._create_cycle_meeting_with_sub(self.yesterday, "09:00", "10:00", mid_prefix="cycle1")
+        self._create_cycle_meeting_with_sub(self.tomorrow, "14:00", "15:00", mid_prefix="cycle2")
+        self._create_meeting(date=self.today, start="10:00", end="11:00")
+
+        response = self.client.get('/inner/v1/meeting/meeting/', {
+            'community': self.community,
+            'order_by': 'date',
+            'order_type': 'asc'
+        })
+
+        self.assertEqual(response.status_code, 200)
+
+    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
+    def test_get_queryset_non_date_desc_order(self, mock_create):
+        """Test get_queryset with order_by not 'date' and order_type=desc.
+
+        Covers lines 151-153 - non-date sorting with descending order.
+        """
+        mock_create.return_value = {"mid": "test_mid", "join_url": "url", "host_id": "host"}
+
+        # Create meetings
+        self._create_meeting(date=self.today, start="09:00", end="10:00")
+        self._create_meeting(date=self.today, start="14:00", end="15:00")
+
+        # Request with order_by=create_time (not 'date') - triggers non-date branch
+        response = self.client.get('/inner/v1/meeting/meeting/', {
+            'community': self.community,
+            'order_by': 'create_time',  # Non-date sorting (allowed field)
+            'order_type': 'desc'
+        })
+
+        self.assertEqual(response.status_code, 200)
+
+    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
+    def test_get_queryset_non_date_default_order(self, mock_create):
+        """Test get_queryset with order_by not 'date' and no order_type (default desc).
+
+        Covers lines 151-153 - non-date sorting path.
+        """
+        mock_create.return_value = {"mid": "test_mid", "join_url": "url", "host_id": "host"}
+
+        self._create_meeting(date=self.today, start="10:00", end="11:00")
+
+        # Request with order_by=update_time without order_type - triggers default behavior
+        response = self.client.get('/inner/v1/meeting/meeting/', {
+            'community': self.community,
+            'order_by': 'update_time'  # Non-date sorting (allowed field)
+        })
+
         self.assertEqual(response.status_code, 200)
