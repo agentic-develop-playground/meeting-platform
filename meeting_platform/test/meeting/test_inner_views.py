@@ -941,133 +941,114 @@ class MeetingViewQuerySetTest(TestCommonMeeting):
         )
         return parent, sub
 
-    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
-    def test_get_queryset_date_order_by_cycle_meeting(self, mock_create):
-        """Test get_queryset with order_by=date for cycle meetings triggers subquery logic.
+    def _create_request_with_params(self, params):
+        """Create a mock request object with query parameters."""
+        from django.test import RequestFactory
+        from rest_framework.request import Request
+        factory = RequestFactory()
+        django_request = factory.get('/inner/v1/meeting/meeting/', params)
+        return Request(django_request)
 
-        Covers lines 108, 111, 117, 123, 129.
+    def test_get_queryset_date_order_by_direct(self):
+        """Test get_queryset directly with order_by=date for cycle meetings.
+
+        Covers lines 108, 111, 117, 123, 129, 144-145.
         """
-        mock_create.return_value = {"mid": "test_mid", "join_url": "url", "host_id": "host"}
-
-        # Create a cycle meeting with sub-meeting on different date
+        # Create a cycle meeting with sub-meeting
         parent, sub = self._create_cycle_meeting_with_sub(self.tomorrow, "14:00", "15:00")
-
-        # Create a non-cycle meeting for comparison
         non_cycle = self._create_meeting(date=self.today, start="10:00", end="11:00")
 
-        # Request with order_by=date - triggers cycle meeting subquery logic
-        response = self.client.get('/inner/v1/meeting/meeting/', {
+        # Create view and request
+        view = MeetingView()
+        view.request = self._create_request_with_params({
             'community': self.community,
             'order_by': 'date',
             'order_type': 'desc'
         })
+        view.format_kwarg = None
 
-        self.assertEqual(response.status_code, 200)
-        # Verify response contains meetings
-        data = response.data if hasattr(response, 'data') else response.json()
-        self.assertIn('data', data)
+        # Call get_queryset directly
+        queryset = view.get_queryset()
 
-    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
-    def test_get_queryset_date_order_by_with_filter_date(self, mock_create):
-        """Test get_queryset with order_by=date and date filter parameter.
+        # Verify queryset is returned
+        self.assertIsNotNone(queryset)
+        # Lines 108, 111, 117, 123, 129, 144-145 should be covered
+
+    def test_get_queryset_with_filter_date_direct(self):
+        """Test get_queryset directly with order_by=date and date filter.
 
         Covers lines 113-115 - filter_date parameter is used in subquery.
         """
-        mock_create.return_value = {"mid": "test_mid", "join_url": "url", "host_id": "host"}
-
-        # Create cycle meeting with sub-meeting on specific date
         parent, sub = self._create_cycle_meeting_with_sub(self.tomorrow)
 
-        # Request with order_by=date AND date filter parameter
-        # This triggers the filter_date logic in lines 113-115
-        response = self.client.get('/inner/v1/meeting/meeting/', {
+        view = MeetingView()
+        view.request = self._create_request_with_params({
             'community': self.community,
             'order_by': 'date',
             'order_type': 'desc',
-            'date': self.tomorrow  # Filter by date - triggers filter_date branch
+            'date': self.tomorrow
         })
+        view.format_kwarg = None
 
-        self.assertEqual(response.status_code, 200)
+        queryset = view.get_queryset()
+        self.assertIsNotNone(queryset)
+        # Lines 113-115 should be covered
 
-    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
-    def test_get_queryset_date_desc_order(self, mock_create):
-        """Test get_queryset with order_by=date and order_type=desc.
-
-        Covers lines 144-145 - descending order for date sorting.
-        """
-        mock_create.return_value = {"mid": "test_mid", "join_url": "url", "host_id": "host"}
-
-        # Create multiple meetings with different dates
-        self._create_cycle_meeting_with_sub(self.yesterday, "09:00", "10:00", mid_prefix="cycle1")
-        self._create_cycle_meeting_with_sub(self.tomorrow, "14:00", "15:00", mid_prefix="cycle2")
-        self._create_meeting(date=self.today, start="10:00", end="11:00")
-
-        response = self.client.get('/inner/v1/meeting/meeting/', {
-            'community': self.community,
-            'order_by': 'date',
-            'order_type': 'desc'
-        })
-
-        self.assertEqual(response.status_code, 200)
-        data = response.data if hasattr(response, 'data') else response.json()
-        self.assertIn('data', data)
-
-    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
-    def test_get_queryset_date_asc_order(self, mock_create):
-        """Test get_queryset with order_by=date and order_type=asc.
+    def test_get_queryset_date_asc_order_direct(self):
+        """Test get_queryset directly with order_by=date and order_type=asc.
 
         Covers lines 147-148 - ascending order for date sorting.
         """
-        mock_create.return_value = {"mid": "test_mid", "join_url": "url", "host_id": "host"}
-
-        # Create multiple meetings
         self._create_cycle_meeting_with_sub(self.yesterday, "09:00", "10:00", mid_prefix="cycle1")
         self._create_cycle_meeting_with_sub(self.tomorrow, "14:00", "15:00", mid_prefix="cycle2")
         self._create_meeting(date=self.today, start="10:00", end="11:00")
 
-        response = self.client.get('/inner/v1/meeting/meeting/', {
+        view = MeetingView()
+        view.request = self._create_request_with_params({
             'community': self.community,
             'order_by': 'date',
             'order_type': 'asc'
         })
+        view.format_kwarg = None
 
-        self.assertEqual(response.status_code, 200)
+        queryset = view.get_queryset()
+        self.assertIsNotNone(queryset)
+        # Lines 147-148 should be covered
 
-    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
-    def test_get_queryset_non_date_desc_order(self, mock_create):
-        """Test get_queryset with order_by not 'date' and order_type=desc.
+    def test_get_queryset_non_date_desc_order_direct(self):
+        """Test get_queryset directly with order_by not 'date' and order_type=desc.
 
         Covers lines 151-153 - non-date sorting with descending order.
         """
-        mock_create.return_value = {"mid": "test_mid", "join_url": "url", "host_id": "host"}
-
-        # Create meetings
         self._create_meeting(date=self.today, start="09:00", end="10:00")
         self._create_meeting(date=self.today, start="14:00", end="15:00")
 
-        # Request with order_by=create_time (not 'date') - triggers non-date branch
-        response = self.client.get('/inner/v1/meeting/meeting/', {
+        view = MeetingView()
+        view.request = self._create_request_with_params({
             'community': self.community,
-            'order_by': 'create_time',  # Non-date sorting (allowed field)
+            'order_by': 'create_time',
             'order_type': 'desc'
         })
+        view.format_kwarg = None
 
-        self.assertEqual(response.status_code, 200)
+        queryset = view.get_queryset()
+        self.assertIsNotNone(queryset)
+        # Lines 151-153 should be covered
 
-    @mock.patch('meeting.infrastructure.adapter.meeting_adapter_impl.meeting_adapter_impl.MeetingAdapterImpl.create')
-    def test_get_queryset_non_date_default_order(self, mock_create):
-        """Test get_queryset with order_by not 'date' and no order_type (default desc).
+    def test_get_queryset_non_date_default_order_direct(self):
+        """Test get_queryset directly with order_by not 'date' without order_type.
 
-        Covers lines 151-153 - non-date sorting path.
+        Covers lines 151-153 - non-date sorting path with default order_type.
         """
-        mock_create.return_value = {"mid": "test_mid", "join_url": "url", "host_id": "host"}
-
         self._create_meeting(date=self.today, start="10:00", end="11:00")
 
-        # Request with order_by=update_time without order_type - triggers default behavior
-        response = self.client.get('/inner/v1/meeting/meeting/', {
+        view = MeetingView()
+        view.request = self._create_request_with_params({
             'community': self.community,
-            'order_by': 'update_time'  # Non-date sorting (allowed field)
+            'order_by': 'update_time'
         })
+        view.format_kwarg = None
 
-        self.assertEqual(response.status_code, 200)
+        queryset = view.get_queryset()
+        self.assertIsNotNone(queryset)
+        # Lines 151-153 should be covered

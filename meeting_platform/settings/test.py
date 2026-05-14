@@ -72,6 +72,7 @@ USE_TZ = False
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Asia/Shanghai'
 STATIC_URL = '/static/'
+STATIC_ROOT = '/tmp/static'  # Required for urls.py static() call in DEBUG mode
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
 # Stub external platform configs required by meeting app to prevent AttributeError during tests
