@@ -1,0 +1,25 @@
+name: check-branch-naming
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  pull-requests: read
+
+jobs:
+  check-branch-naming:
+    name: check-branch-naming
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate branch name
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
+        with:
+          script: |
+            const branch = context.payload.pull_request.head.ref;
+            const allowed = /^(feature|fix|bugfix|hotfix|release|refactor|chore|docs|test|ci|feat)\/.+$/;
+            const workflowB = /^issue-\d+-impl$/; // Workflow B convention: issue-N-impl
+            if (!allowed.test(branch) && !workflowB.test(branch) && !branch.startsWith('dependabot/')) {
+              core.setFailed(`Branch name "${branch}" must use an approved prefix.`);
+            }

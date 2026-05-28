@@ -1,0 +1,29 @@
+name: check-label
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+  workflow_dispatch:
+
+permissions:
+  pull-requests: read
+
+jobs:
+  check-label:
+    name: check-label
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR labels
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
+        with:
+          script: |
+            const labels = context.payload.pull_request.labels.map((label) => label.name);
+            if (labels.includes('enhancement') && !labels.includes('accepted')) {
+              core.setFailed('enhancement PRs must be linked to an accepted issue.');
+            }
+            if (labels.includes('need_security') && !labels.includes('need_design')) {
+              core.setFailed('need_security requires need_design.');
+            }
+            if (labels.includes('need_ux') && !labels.includes('need_design')) {
+              core.setFailed('need_ux requires need_design.');
+            }

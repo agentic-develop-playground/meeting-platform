@@ -1,0 +1,42 @@
+name: document-gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+  workflow_dispatch:
+
+permissions:
+  pull-requests: read
+  issues: read
+
+jobs:
+  document-gate:
+    name: document-gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate linked issue and document gate preconditions
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
+        with:
+          script: |
+            const title = context.payload.pull_request.title || '';
+            const body = context.payload.pull_request.body || '';
+            const labels = context.payload.pull_request.labels.map((label) => label.name);
+            const exemptLabels = ['bug', 'need_light', 'task', 'ci', 'chore'];
+
+            if (labels.some(label => exemptLabels.includes(label))) {
+              core.info(`PR has exempt label, skipping document gate.`);
+              return;
+            }
+
+            if (/^(ci|chore)(:|\().*$/i.test(title)) {
+              core.info(`PR title "${title}" is ci/chore, skipping document gate.`);
+              return;
+            }
+
+            const issueUrl = (body.match(/resolve[sd]?[:\s]+(https?:\/\/\S+)/i) || [])[1];
+            if (!issueUrl) {
+              core.setFailed('PR description must include a resolved issue URL for design/release document checks.');
+              return;
+            }
+
+            core.info(`Linked issue: ${issueUrl}`);
