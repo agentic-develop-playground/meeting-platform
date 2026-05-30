@@ -573,6 +573,138 @@ class MeetingAppMergedListTest(TestCommonMeeting):
                 self.assertIn('cycle_start_date', m)
                 self.assertIn('cycle_end_date', m)
 
+    def test_get_merged_meeting_list_sort_by_topic_same_start(self):
+        """Test meetings with same start time are sorted by topic alphabetically."""
+        self._create_non_cycle_meeting(
+            topic="Beta Meeting",
+            start="10:00",
+            mid=f"mid1_{datetime.datetime.now().timestamp()}"
+        )
+        self._create_non_cycle_meeting(
+            topic="Alpha Meeting",
+            start="10:00",
+            mid=f"mid2_{datetime.datetime.now().timestamp()}"
+        )
+        self._create_non_cycle_meeting(
+            topic="Gamma Meeting",
+            start="10:00",
+            mid=f"mid3_{datetime.datetime.now().timestamp()}"
+        )
+
+        result = self.app.get_merged_meeting_list(
+            community=self.community,
+            filters={},
+            order_by='date',
+            order_type='asc',
+            page=1,
+            page_size=10
+        )
+
+        self.assertEqual(result['total'], 3)
+        meeting_topics = [m['topic'] for m in result['list']]
+        self.assertEqual(meeting_topics, ["Alpha Meeting", "Beta Meeting", "Gamma Meeting"])
+
+    def test_get_merged_meeting_list_sort_priority(self):
+        """Test sorting priority: date → start → topic."""
+        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+        tomorrow = (datetime.datetime.now() + datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+
+        self._create_non_cycle_meeting(
+            topic="Z Meeting",
+            date=yesterday,
+            start="10:00",
+            mid=f"mid_y1_{datetime.datetime.now().timestamp()}"
+        )
+        self._create_non_cycle_meeting(
+            topic="A Meeting",
+            date=yesterday,
+            start="14:00",
+            mid=f"mid_y2_{datetime.datetime.now().timestamp()}"
+        )
+        self._create_non_cycle_meeting(
+            topic="B Meeting",
+            date=self.today,
+            start="10:00",
+            mid=f"mid_t1_{datetime.datetime.now().timestamp()}"
+        )
+        self._create_non_cycle_meeting(
+            topic="C Meeting",
+            date=self.today,
+            start="10:00",
+            mid=f"mid_t2_{datetime.datetime.now().timestamp()}"
+        )
+        self._create_non_cycle_meeting(
+            topic="A Meeting",
+            date=self.today,
+            start="10:00",
+            mid=f"mid_t3_{datetime.datetime.now().timestamp()}"
+        )
+
+        result = self.app.get_merged_meeting_list(
+            community=self.community,
+            filters={},
+            order_by='date',
+            order_type='asc',
+            page=1,
+            page_size=10
+        )
+
+        self.assertEqual(result['total'], 5)
+        meeting_list = result['list']
+        first_date = meeting_list[0]['date']
+        if hasattr(first_date, 'strftime'):
+            first_date = first_date.strftime('%Y-%m-%d')
+        self.assertEqual(first_date, yesterday)
+        second_date = meeting_list[1]['date']
+        if hasattr(second_date, 'strftime'):
+            second_date = second_date.strftime('%Y-%m-%d')
+        self.assertEqual(second_date, yesterday)
+        self.assertEqual(meeting_list[0]['start'], "10:00")
+        self.assertEqual(meeting_list[1]['start'], "14:00")
+        third_date = meeting_list[2]['date']
+        if hasattr(third_date, 'strftime'):
+            third_date = third_date.strftime('%Y-%m-%d')
+        self.assertEqual(third_date, self.today)
+        same_start_topics = [m['topic'] for m in meeting_list if m['date'].strftime('%Y-%m-%d') == self.today and m['start'] == "10:00"]
+        self.assertEqual(same_start_topics, ["A Meeting", "B Meeting", "C Meeting"])
+
+    def test_get_merged_meeting_list_topic_sort_with_desc(self):
+        """Test topic sorts ascending even when order_type is desc."""
+        yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+        tomorrow = (datetime.datetime.now() + datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+
+        self._create_non_cycle_meeting(
+            topic="C Meeting",
+            date=self.today,
+            start="10:00",
+            mid=f"mid1_{datetime.datetime.now().timestamp()}"
+        )
+        self._create_non_cycle_meeting(
+            topic="A Meeting",
+            date=self.today,
+            start="10:00",
+            mid=f"mid2_{datetime.datetime.now().timestamp()}"
+        )
+        self._create_non_cycle_meeting(
+            topic="B Meeting",
+            date=self.today,
+            start="10:00",
+            mid=f"mid3_{datetime.datetime.now().timestamp()}"
+        )
+
+        result = self.app.get_merged_meeting_list(
+            community=self.community,
+            filters={},
+            order_by='date',
+            order_type='desc',
+            page=1,
+            page_size=10
+        )
+
+        self.assertEqual(result['total'], 3)
+        same_start_topics = [m['topic'] for m in result['list'] if m['start'] == "10:00"]
+        self.assertEqual(same_start_topics, ["A Meeting", "B Meeting", "C Meeting"])
+
 
 class MeetingAppDeleteTest(TestCommonMeeting):
     """Test MeetingApp._delete_dao method."""

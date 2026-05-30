@@ -690,7 +690,7 @@ class MeetingApp:
         # 排序并分页
         # 注意：union后的QuerySet排序需要使用相同的字段名
         offset = (page - 1) * page_size
-        merged_qs = merged_qs.order_by(order_field, 'start')[offset:offset + page_size]
+        merged_qs = merged_qs.order_by(order_field, 'start', 'topic')[offset:offset + page_size]
 
         # 返回字典列表
         meeting_list = list(merged_qs)
