@@ -665,7 +665,11 @@ class MeetingAppMergedListTest(TestCommonMeeting):
         if hasattr(third_date, 'strftime'):
             third_date = third_date.strftime('%Y-%m-%d')
         self.assertEqual(third_date, self.today)
-        same_start_topics = [m['topic'] for m in meeting_list if m['date'].strftime('%Y-%m-%d') == self.today and m['start'] == "10:00"]
+        same_start_topics = [
+            m['topic'] for m in meeting_list
+            if (m['date'].strftime('%Y-%m-%d') if hasattr(m['date'], 'strftime') else m['date']) == self.today
+            and m['start'] == "10:00"
+        ]
         self.assertEqual(same_start_topics, ["A Meeting", "B Meeting", "C Meeting"])
 
     def test_get_merged_meeting_list_topic_sort_with_desc(self):
